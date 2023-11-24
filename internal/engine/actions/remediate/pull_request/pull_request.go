@@ -80,6 +80,7 @@ type prEntry struct {
 // Remediator is the remediation engine for the Pull Request remediation type
 type Remediator struct {
 	cli        provifv1.GitHub
+	gitCli     provifv1.Git
 	actionType interfaces.ActionType
 
 	titleTemplate *htmltemplate.Template
@@ -113,6 +114,11 @@ func NewPullRequestRemediate(
 		return nil, fmt.Errorf("failed to get github client: %w", err)
 	}
 
+	gitCli, err := pbuild.GetGit()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get git client: %w", err)
+	}
+
 	entries, err := prConfigToEntries(prCfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create PR entries: %w", err)
@@ -120,6 +126,7 @@ func NewPullRequestRemediate(
 
 	return &Remediator{
 		cli:        cli,
+		gitCli:     gitCli,
 		actionType: actionType,
 
 		titleTemplate: titleTmpl,
