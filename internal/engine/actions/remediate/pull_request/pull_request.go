@@ -22,13 +22,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/storage"
 	htmltemplate "html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
+	"github.com/go-git/go-billy/v5"
 	"github.com/google/go-github/v53/github"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -193,7 +203,7 @@ func (r *Remediator) Do(
 	ent protoreflect.ProtoMessage,
 	params interfaces.ActionsParams,
 	_ *json.RawMessage,
-	_ *interfaces.Result,
+	ingested *interfaces.Result,
 ) (json.RawMessage, error) {
 	repo, ok := ent.(*pb.Repository)
 	if !ok {
@@ -204,6 +214,10 @@ func (r *Remediator) Do(
 		Entity:  ent,
 		Profile: params.GetRule().Def.AsMap(),
 		Params:  params.GetRule().Params.AsMap(),
+	}
+
+	if ingested == nil || ingested.Fs == nil {
+		return nil, errors.New("ingested filesystem is nil")
 	}
 
 	title := new(bytes.Buffer)
@@ -231,7 +245,8 @@ func (r *Remediator) Do(
 			zerolog.Ctx(ctx).Info().Msg("PR already exists, won't create a new one")
 			return nil, nil
 		}
-		remErr = r.run(ctx, repo, title.String(), prFullBodyText, params.GetRule().Params.AsMap())
+		remErr = r.runGit(ctx, ingested.Fs, repo, ingested.Storer, title.String(), prFullBodyText)
+		//remErr = r.run(ctx, repo, title.String(), prFullBodyText, params.GetRule().Params.AsMap())
 	case interfaces.ActionOptDryRun:
 		dryRun(title.String(), prFullBodyText, r.entries)
 		remErr = nil
@@ -253,6 +268,121 @@ func dryRun(title, body string, entries []prEntry) {
 	if err := tmpl.Execute(os.Stdout, entries); err != nil {
 		log.Fatalf("Error executing template: %v", err)
 	}
+}
+
+func (r *Remediator) runGit(
+	ctx context.Context,
+	fs billy.Filesystem,
+	pbRepo *pb.Repository,
+	storer storage.Storer,
+	title, body string,
+) error {
+	logger := zerolog.Ctx(ctx).With().Str("repo", pbRepo.String()).Logger()
+
+	repo, err := git.Open(storer, fs)
+	if err != nil {
+		return fmt.Errorf("cannot open git repo: %w", err)
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("cannot get worktree: %w", err)
+	}
+
+	fmt.Println("retreiving user")
+	u, err := r.cli.GetAuthenticatedUser(ctx)
+	if err != nil {
+		return fmt.Errorf("cannot get authenticated user: %w", err)
+	}
+
+	logger.Debug().Str("branch", branchBaseName(title)).Msg("Checking out branch")
+	err = wt.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(branchBaseName(title)),
+		Create: true,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot checkout branch: %w", err)
+	}
+
+	logger.Debug().Msg("Creating file entries")
+	if err := r.createEntries(fs); err != nil {
+		return fmt.Errorf("cannot create entries: %w", err)
+	}
+
+	logger.Debug().Msg("Staging changes")
+	for _, entry := range r.entries {
+		if _, err := wt.Add(entry.Path); err != nil {
+			return fmt.Errorf("cannot add file %s: %w", entry.Path, err)
+		}
+	}
+
+	logger.Debug().Msg("Committing changes")
+	_, err = wt.Commit(title, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  u.GetName(),
+			Email: u.GetEmail(),
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("cannot commit: %w", err)
+	}
+
+	var b bytes.Buffer
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Force:      true,
+		RefSpecs: []config.RefSpec{
+			config.RefSpec(
+				fmt.Sprintf("+%s:%s", refFromBranch(branchBaseName(title)), refFromBranch(branchBaseName(title))),
+			),
+		},
+		Auth: &githttp.BasicAuth{
+			Username: u.GetName(),
+			Password: r.cli.GetToken(),
+		},
+		Progress: &b,
+	})
+	if err != nil {
+		fmt.Errorf("cannot push: %w", err)
+	}
+	zerolog.Ctx(ctx).Debug().Msgf("Push output: %s", b.String())
+
+	_, err = r.cli.CreatePullRequest(
+		ctx, pbRepo.GetOwner(), pbRepo.GetName(),
+		title, body,
+		refFromBranch(branchBaseName(title)), dflBranchTo,
+	)
+	if err != nil {
+		return fmt.Errorf("cannot create pull request: %w", err)
+	}
+
+	zerolog.Ctx(ctx).Info().Msg("Pull request created")
+	return nil
+}
+
+func (r *Remediator) createEntries(fs billy.Filesystem) error {
+	for _, entry := range r.entries {
+		if err := writeEntry(entry, fs); err != nil {
+			return fmt.Errorf("cannot write entry %s: %w", entry.Path, err)
+		}
+	}
+	return nil
+}
+
+func writeEntry(entry prEntry, fs billy.Filesystem) error {
+	if err := fs.MkdirAll(filepath.Dir(entry.Path), 0755); err != nil {
+		return fmt.Errorf("cannot create directory: %w", err)
+	}
+
+	f, err := fs.Create(entry.Path)
+	if err != nil {
+		return fmt.Errorf("cannot create file: %w", err)
+	}
+	defer f.Close()
+
+	io.WriteString(f, entry.Content)
+	return nil
 }
 
 func (r *Remediator) run(
