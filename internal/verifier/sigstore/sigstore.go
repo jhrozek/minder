@@ -42,10 +42,17 @@ var _ verifyif.ArtifactVerifier = (*Sigstore)(nil)
 // New creates a new Sigstore verifier
 func New(trustedRoot, cacheDir string, authOpts ...container.AuthMethod) (*Sigstore, error) {
 	// init sigstore's verifier
-	trustedrootJSON, err := tuf.GetTrustedrootJSON(trustedRoot, cacheDir)
+	opts := tuf.DefaultOptions()
+	opts.RepositoryBaseURL = trustedRoot
+	client, err := tuf.New(opts)
 	if err != nil {
 		return nil, err
 	}
+	trustedrootJSON, err := client.GetTarget("trusted_root.json")
+	if err != nil {
+		return nil, err
+	}
+
 	trustedMaterial, err := root.NewTrustedRootFromJSON(trustedrootJSON)
 	if err != nil {
 		return nil, err
