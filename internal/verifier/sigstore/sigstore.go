@@ -43,7 +43,8 @@ var _ verifyif.ArtifactVerifier = (*Sigstore)(nil)
 func New(trustedRoot, cacheDir string, authOpts ...container.AuthMethod) (*Sigstore, error) {
 	// init sigstore's verifier
 	opts := tuf.DefaultOptions()
-	opts.RepositoryBaseURL = trustedRoot
+	opts.RepositoryBaseURL = "https://" + trustedRoot
+	opts.CachePath = cacheDir
 	client, err := tuf.New(opts)
 	if err != nil {
 		return nil, err
@@ -57,8 +58,9 @@ func New(trustedRoot, cacheDir string, authOpts ...container.AuthMethod) (*Sigst
 	if err != nil {
 		return nil, err
 	}
-	sev, err := verify.NewSignedEntityVerifier(trustedMaterial, verify.WithSignedCertificateTimestamps(1),
-		verify.WithTransparencyLog(1), verify.WithObserverTimestamps(1))
+	sev, err := verify.NewSignedEntityVerifier(trustedMaterial,
+		verify.WithoutAnyObserverTimestampsInsecure(),
+	)
 	if err != nil {
 		return nil, err
 	}

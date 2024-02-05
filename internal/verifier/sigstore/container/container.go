@@ -128,6 +128,8 @@ func Verify(
 		verify.WithCertificateIdentity(*params.certID),
 	))
 	if err != nil {
+		zerolog.Ctx(ctx).Err(err).Msg("error verifying the artifact")
+		fmt.Println(err)
 		// The bundle we provided failed verification
 		params.result.IsVerified = false
 	} else {
