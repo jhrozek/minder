@@ -47,7 +47,7 @@ func createRandomProvider(t *testing.T, projectID uuid.UUID) Provider {
 	return prov
 }
 
-func TestCreateAndDeleteProvider(t *testing.T) {
+func TestCreateAndDeleteProviderWithValidProjectID(t *testing.T) {
 	t.Parallel()
 
 	org := createRandomOrganization(t)
@@ -58,9 +58,28 @@ func TestCreateAndDeleteProvider(t *testing.T) {
 	require.NoError(t, err, "Error getting provider")
 	require.NotEmpty(t, getProv, "Empty provider returned")
 
-	err = testQueries.DeleteProvider(context.Background(), prov.ID)
+	err = testQueries.DeleteProvider(context.Background(), DeleteProviderParams{ID: prov.ID, ProjectID: proj.ID})
 	require.NoError(t, err, "Error deleting provider")
 
 	_, err = testQueries.GetProviderByID(context.Background(), prov.ID)
+	require.ErrorIs(t, err, sql.ErrNoRows, "Retrieved provider after deletion")
+}
+
+func TestCreateAndDeleteProviderWithNullProjectID(t *testing.T) {
+	t.Parallel()
+
+	org := createRandomOrganization(t)
+	proj := createRandomProject(t, org.ID)
+	prov := createRandomProvider(t, proj.ID)
+
+	getProv, err := testQueries.GetProviderByID(context.Background(), prov.ID)
+	require.NoError(t, err, "Error getting provider")
+	require.NotEmpty(t, getProv, "Empty provider returned")
+
+	err = testQueries.DeleteProvider(context.Background(), DeleteProviderParams{ID: prov.ID, ProjectID: uuid.Nil})
+	require.NoError(t, err, "Error deleting provider")
+
+	_, err = testQueries.GetProviderByID(context.Background(), prov.ID)
+	require.Error(t, err, "Retrieved provider after deletion")
 	require.ErrorIs(t, err, sql.ErrNoRows, "Retrieved provider after deletion")
 }

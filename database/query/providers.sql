@@ -58,4 +58,4 @@ UPDATE providers
     WHERE id = sqlc.arg('id') AND project_id = sqlc.arg('project_id');
 
 -- name: DeleteProvider :exec
-DELETE FROM providers WHERE id = $1;
+DELETE FROM providers WHERE id = $1 AND (project_id = sqlc.arg('project_id') OR sqlc.arg('project_id') = '00000000-0000-0000-0000-000000000000'::UUID);

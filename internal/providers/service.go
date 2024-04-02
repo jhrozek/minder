@@ -311,7 +311,7 @@ func (p *providerService) DeleteGitHubAppInstallation(ctx context.Context, insta
 		Int64("installationID", installationID).
 		Str("providerID", installation.ProviderID.UUID.String()).
 		Msg("Deleting claimed installation")
-	return p.store.DeleteProvider(ctx, installation.ProviderID.UUID)
+	return p.store.DeleteProvider(ctx, db.DeleteProviderParams{ID: installation.ProviderID.UUID, ProjectID: installation.ProjectID.UUID})
 }
 
 func (p *providerService) verifyProviderTokenIdentity(
