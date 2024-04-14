@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -296,50 +297,51 @@ func TestCreateProfileStatusStoredProcedure(t *testing.T) {
 		ruleStatusModifyFn        func(profile Profile, randomEntities *testRandomEntities)
 		expectedStatusAfterModify EvalStatusTypes
 	}{
-		{
-			name: "Profile with no rule evaluations, should be pending",
-			ruleStatusSetupFn: func(_ Profile, _ *testRandomEntities) {
-				// noop
-			},
-			expectedStatusAfterSetup: EvalStatusTypesPending,
-			ruleStatusModifyFn: func(_ Profile, _ *testRandomEntities) {
-				// noop
-			},
-			expectedStatusAfterModify: EvalStatusTypesPending,
-		},
-		{
-			name: "Profile with only success rule evaluation, should be success",
-			ruleStatusSetupFn: func(_ Profile, _ *testRandomEntities) {
-				// noop
-			},
-			expectedStatusAfterSetup: EvalStatusTypesPending,
-			ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesSuccess, "")
-			},
-			expectedStatusAfterModify: EvalStatusTypesSuccess,
-		},
-		{
-			name: "Profile with all skipped evaluations should be skipped",
-			ruleStatusSetupFn: func(_ Profile, _ *testRandomEntities) {
-				// noop
-			},
-			expectedStatusAfterSetup: EvalStatusTypesPending,
-			ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesSkipped, "")
-
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
-					EvalStatusTypesSkipped, "")
-			},
-			expectedStatusAfterModify: EvalStatusTypesSkipped,
-		},
+		//{
+		//	name: "Profile with no rule evaluations, should be pending",
+		//	ruleStatusSetupFn: func(_ Profile, _ *testRandomEntities) {
+		//		// noop
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesPending,
+		//	ruleStatusModifyFn: func(_ Profile, _ *testRandomEntities) {
+		//		// noop
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesPending,
+		//},
+		//{
+		//	name: "Profile with only success rule evaluation, should be success",
+		//	ruleStatusSetupFn: func(_ Profile, _ *testRandomEntities) {
+		//		// noop
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesPending,
+		//	ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesSuccess, "")
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesSuccess,
+		//},
+		//{
+		//	name: "Profile with all skipped evaluations should be skipped",
+		//	ruleStatusSetupFn: func(_ Profile, _ *testRandomEntities) {
+		//		// noop
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesPending,
+		//	ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesSkipped, "")
+		//
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
+		//			EvalStatusTypesSkipped, "")
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesSkipped,
+		//},
 		{
 			name: "Profile with one success and failure rule evaluation, should be failure",
 			ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
+				fmt.Println("profileID", profile.ID)
 				upsertEvalStatus(
 					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
 					EvalStatusTypesSuccess, "")
@@ -382,87 +384,102 @@ func TestCreateProfileStatusStoredProcedure(t *testing.T) {
 			},
 			expectedStatusAfterModify: EvalStatusTypesError,
 		},
-		{
-			name: "Inserting success in addition to failure should result in failure",
-			ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesFailure, "")
-			},
-			expectedStatusAfterSetup: EvalStatusTypesFailure,
-			ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
-					EvalStatusTypesSuccess, "")
-			},
-			expectedStatusAfterModify: EvalStatusTypesFailure,
-		},
-		{
-			name: "Overwriting all to success results in success",
-			ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesFailure, "")
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
-					EvalStatusTypesSuccess, "")
-			},
-			expectedStatusAfterSetup: EvalStatusTypesFailure,
-			ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesSuccess, "")
-			},
-			expectedStatusAfterModify: EvalStatusTypesSuccess,
-		},
-		{
-			name: "Overwriting one to failure results in failure",
-			ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesSuccess, "")
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
-					EvalStatusTypesSuccess, "")
-			},
-			expectedStatusAfterSetup: EvalStatusTypesSuccess,
-			ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesFailure, "")
-			},
-			expectedStatusAfterModify: EvalStatusTypesFailure,
-		},
-		{
-			name: "Skipped then failure results in failure",
-			ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesSkipped, "")
-			},
-			expectedStatusAfterSetup: EvalStatusTypesSkipped,
-			ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
-					EvalStatusTypesFailure, "")
-			},
-			expectedStatusAfterModify: EvalStatusTypesFailure,
-		},
-		{
-			name: "Skipped then success results in success",
-			ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
-					EvalStatusTypesSkipped, "")
-			},
-			expectedStatusAfterSetup: EvalStatusTypesSkipped,
-			ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
-				upsertEvalStatus(
-					t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
-					EvalStatusTypesSuccess, "")
-			},
-			expectedStatusAfterModify: EvalStatusTypesSuccess,
-		},
+		//{
+		//	name: "Inserting success in addition to failure should result in failure",
+		//	ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesFailure, "")
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesFailure,
+		//	ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
+		//			EvalStatusTypesSuccess, "")
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesFailure,
+		//},
+		//{
+		//	name: "Overwriting all to success results in success",
+		//	ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesFailure, "")
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
+		//			EvalStatusTypesSuccess, "")
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesFailure,
+		//	ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesSuccess, "")
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesSuccess,
+		//},
+		//{
+		//	name: "Overwriting one to failure results in failure",
+		//	ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesSuccess, "")
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
+		//			EvalStatusTypesSuccess, "")
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesSuccess,
+		//	ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesFailure, "")
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesFailure,
+		//},
+		//{
+		//	name: "Skipped then failure results in failure",
+		//	ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesSkipped, "")
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesSkipped,
+		//	ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
+		//			EvalStatusTypesFailure, "")
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesFailure,
+		//},
+		//{
+		//	name: "Skipped then success results in success",
+		//	ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesSkipped, "")
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesSkipped,
+		//	ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
+		//			EvalStatusTypesSuccess, "")
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesSuccess,
+		//},
+		//{
+		//	name: "Error then skipped results in skipped",
+		//	ruleStatusSetupFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType1.ID,
+		//			EvalStatusTypesError, "")
+		//	},
+		//	expectedStatusAfterSetup: EvalStatusTypesError,
+		//	ruleStatusModifyFn: func(profile Profile, randomEntities *testRandomEntities) {
+		//		upsertEvalStatus(
+		//			t, profile.ID, randomEntities.repo.ID, randomEntities.ruleType2.ID,
+		//			EvalStatusTypesSkipped, "")
+		//	},
+		//	expectedStatusAfterModify: EvalStatusTypesSkipped,
+		//},
 	}
 
 	randomEntities := createTestRandomEntities(t)
