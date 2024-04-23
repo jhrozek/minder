@@ -339,7 +339,7 @@ func getCredentialForProvider(
 		return nil, fmt.Errorf("error getting credential: %w", err)
 	}
 
-	decryptedToken, err := crypteng.DecryptOAuthToken(encToken.EncryptedToken)
+	decryptedToken, err := crypteng.DecryptOAuthToken(encToken.EncryptedTokenSalt, encToken.EncryptedToken)
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting access token: %w", err)
 	}
@@ -387,7 +387,7 @@ func createProviderWithAccessToken(
 	fallbackTokenClient *gogithub.Client,
 	opts ...ProviderBuilderOption,
 ) (*ProviderBuilder, error) {
-	decryptedToken, err := crypteng.DecryptOAuthToken(encToken.EncryptedToken)
+	decryptedToken, err := crypteng.DecryptOAuthToken(encToken.EncryptedTokenSalt, encToken.EncryptedToken)
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting access token: %w", err)
 	}

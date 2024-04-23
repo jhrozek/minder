@@ -120,7 +120,7 @@ func TestEncryptDecryptOAuthToken(t *testing.T) {
 	encodedToken := base64.StdEncoding.EncodeToString(encryptedToken)
 	assert.Nil(t, err)
 
-	decrypted, err := engine.DecryptOAuthToken(encodedToken)
+	decrypted, err := engine.DecryptOAuthToken(encodedToken, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, oauthToken, decrypted)
 }

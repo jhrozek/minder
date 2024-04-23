@@ -133,7 +133,7 @@ func (g *githubProviderFactory) createProviderWithAccessToken(
 	ctx context.Context,
 	encToken db.ProviderAccessToken,
 ) (*credentialDetails, error) {
-	decryptedToken, err := g.crypteng.DecryptOAuthToken(encToken.EncryptedToken)
+	decryptedToken, err := g.crypteng.DecryptOAuthToken(encToken.EncryptedToken, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting access token: %w", err)
 	}

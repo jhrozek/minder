@@ -40,33 +40,33 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 }
 
 // DecryptOAuthToken mocks base method.
-func (m *MockEngine) DecryptOAuthToken(arg0 string) (oauth2.Token, error) {
+func (m *MockEngine) DecryptOAuthToken(arg0 []byte, arg1 string) (oauth2.Token, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DecryptOAuthToken", arg0)
+	ret := m.ctrl.Call(m, "DecryptOAuthToken", arg0, arg1)
 	ret0, _ := ret[0].(oauth2.Token)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DecryptOAuthToken indicates an expected call of DecryptOAuthToken.
-func (mr *MockEngineMockRecorder) DecryptOAuthToken(arg0 any) *gomock.Call {
+func (mr *MockEngineMockRecorder) DecryptOAuthToken(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptOAuthToken", reflect.TypeOf((*MockEngine)(nil).DecryptOAuthToken), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptOAuthToken", reflect.TypeOf((*MockEngine)(nil).DecryptOAuthToken), arg0, arg1)
 }
 
 // DecryptString mocks base method.
-func (m *MockEngine) DecryptString(arg0 string) (string, error) {
+func (m *MockEngine) DecryptString(arg0 []byte, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DecryptString", arg0)
+	ret := m.ctrl.Call(m, "DecryptString", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DecryptString indicates an expected call of DecryptString.
-func (mr *MockEngineMockRecorder) DecryptString(arg0 any) *gomock.Call {
+func (mr *MockEngineMockRecorder) DecryptString(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptString", reflect.TypeOf((*MockEngine)(nil).DecryptString), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptString", reflect.TypeOf((*MockEngine)(nil).DecryptString), arg0, arg1)
 }
 
 // EncryptOAuthToken mocks base method.

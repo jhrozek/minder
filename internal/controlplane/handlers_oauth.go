@@ -249,7 +249,7 @@ func (s *Server) processOAuthCallback(ctx context.Context, w http.ResponseWriter
 	logger.BusinessRecord(ctx).ProviderID = p.ID
 
 	if stateData.RedirectUrl.Valid {
-		redirectUrl, err := s.cryptoEngine.DecryptString(stateData.RedirectUrl.String)
+		redirectUrl, err := s.cryptoEngine.DecryptString(stateData.SessionStateSalt, stateData.RedirectUrl.String)
 		if err != nil {
 			return fmt.Errorf("error decrypting redirect URL: %w", err)
 		}
@@ -328,7 +328,7 @@ func (s *Server) processAppCallback(ctx context.Context, w http.ResponseWriter, 
 
 		// If we have a redirect URL, redirect the user, otherwise show a success page
 		if stateData.RedirectUrl.Valid {
-			redirectUrl, err := s.cryptoEngine.DecryptString(stateData.RedirectUrl.String)
+			redirectUrl, err := s.cryptoEngine.DecryptString(stateData.SessionStateSalt, stateData.RedirectUrl.String)
 			if err != nil {
 				return fmt.Errorf("error decrypting redirect URL: %w", err)
 			}

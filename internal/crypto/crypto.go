@@ -39,9 +39,9 @@ import (
 // Engine provides all functions to encrypt and decrypt data
 type Engine interface {
 	EncryptOAuthToken(data []byte) ([]byte, error)
-	DecryptOAuthToken(encToken string) (oauth2.Token, error)
+	DecryptOAuthToken(salt []byte, encToken string) (oauth2.Token, error)
 	EncryptString(data string) (string, error)
-	DecryptString(encData string) (string, error)
+	DecryptString(salt []byte, encData string) (string, error)
 }
 
 // AesCfbEngine is a structure that allows controller access to cryptographic functions.
@@ -74,10 +74,16 @@ func NewEngine(tokenKey string) Engine {
 
 // EncryptBytes encrypts a row of data using AES-CFB.
 func EncryptBytes(key string, data []byte) ([]byte, error) {
+	salt := make([]byte, 16)
+	_, err := rand.Read(salt)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(data) > 1024*1024*32 {
 		return nil, status.Errorf(codes.InvalidArgument, "data is too large (>32MB)")
 	}
-	block, err := aes.NewCipher(deriveKey(key))
+	block, err := aes.NewCipher(deriveKey(key, salt))
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "failed to create cipher: %s", err)
 	}
@@ -101,7 +107,7 @@ func (e *AesCfbEngine) EncryptOAuthToken(data []byte) ([]byte, error) {
 }
 
 // DecryptOAuthToken decrypts an encrypted oauth token
-func (e *AesCfbEngine) DecryptOAuthToken(encToken string) (oauth2.Token, error) {
+func (e *AesCfbEngine) DecryptOAuthToken(salt []byte, encToken string) (oauth2.Token, error) {
 	var decryptedToken oauth2.Token
 
 	// base64 decode the token
@@ -111,7 +117,7 @@ func (e *AesCfbEngine) DecryptOAuthToken(encToken string) (oauth2.Token, error) 
 	}
 
 	// decrypt the token
-	token, err := decryptBytes(e.encryptionKey, decodeToken)
+	token, err := decryptBytes(e.encryptionKey, salt, decodeToken)
 	if err != nil {
 		return decryptedToken, err
 	}
@@ -139,7 +145,7 @@ func (e *AesCfbEngine) EncryptString(data string) (string, error) {
 }
 
 // DecryptString decrypts an encrypted string
-func (e *AesCfbEngine) DecryptString(encData string) (string, error) {
+func (e *AesCfbEngine) DecryptString(salt []byte, encData string) (string, error) {
 	var decrypted string
 
 	// base64 decode the string
@@ -149,7 +155,7 @@ func (e *AesCfbEngine) DecryptString(encData string) (string, error) {
 	}
 
 	// decrypt the string
-	token, err := decryptBytes(e.encryptionKey, decodeToken)
+	token, err := decryptBytes(e.encryptionKey, salt, decodeToken)
 	if err != nil {
 		return decrypted, err
 	}
@@ -158,8 +164,8 @@ func (e *AesCfbEngine) DecryptString(encData string) (string, error) {
 }
 
 // decryptBytes decrypts a row of data
-func decryptBytes(key string, ciphertext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(deriveKey(key))
+func decryptBytes(key string, salt, ciphertext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(deriveKey(key, salt))
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "failed to create cipher: %s", err)
 	}
@@ -175,10 +181,12 @@ func decryptBytes(key string, ciphertext []byte) ([]byte, error) {
 }
 
 // Function to derive a key from a passphrase using Argon2
-func deriveKey(passphrase string) []byte {
+func deriveKey(passphrase string, salt []byte) []byte {
 	// In a real application, you should use a unique salt for
 	// each key and save it with the encrypted data.
-	salt := []byte("somesalt")
+	if len(salt) == 0 {
+		salt = []byte("somesalt")
+	}
 	return argon2.IDKey([]byte(passphrase), salt, 1, 64*1024, 4, 32)
 }
 
