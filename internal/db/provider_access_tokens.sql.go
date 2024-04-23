@@ -14,7 +14,7 @@ import (
 )
 
 const getAccessTokenByEnrollmentNonce = `-- name: GetAccessTokenByEnrollmentNonce :one
-SELECT id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce FROM provider_access_tokens WHERE project_id = $1 AND enrollment_nonce = $2
+SELECT id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce, encrypted_token_salt FROM provider_access_tokens WHERE project_id = $1 AND enrollment_nonce = $2
 `
 
 type GetAccessTokenByEnrollmentNonceParams struct {
@@ -35,12 +35,13 @@ func (q *Queries) GetAccessTokenByEnrollmentNonce(ctx context.Context, arg GetAc
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EnrollmentNonce,
+		&i.EncryptedTokenSalt,
 	)
 	return i, err
 }
 
 const getAccessTokenByProjectID = `-- name: GetAccessTokenByProjectID :one
-SELECT id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce FROM provider_access_tokens WHERE provider = $1 AND project_id = $2
+SELECT id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce, encrypted_token_salt FROM provider_access_tokens WHERE provider = $1 AND project_id = $2
 `
 
 type GetAccessTokenByProjectIDParams struct {
@@ -61,12 +62,13 @@ func (q *Queries) GetAccessTokenByProjectID(ctx context.Context, arg GetAccessTo
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EnrollmentNonce,
+		&i.EncryptedTokenSalt,
 	)
 	return i, err
 }
 
 const getAccessTokenByProvider = `-- name: GetAccessTokenByProvider :many
-SELECT id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce FROM provider_access_tokens WHERE provider = $1
+SELECT id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce, encrypted_token_salt FROM provider_access_tokens WHERE provider = $1
 `
 
 func (q *Queries) GetAccessTokenByProvider(ctx context.Context, provider string) ([]ProviderAccessToken, error) {
@@ -88,6 +90,7 @@ func (q *Queries) GetAccessTokenByProvider(ctx context.Context, provider string)
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EnrollmentNonce,
+			&i.EncryptedTokenSalt,
 		); err != nil {
 			return nil, err
 		}
@@ -103,7 +106,7 @@ func (q *Queries) GetAccessTokenByProvider(ctx context.Context, provider string)
 }
 
 const getAccessTokenSinceDate = `-- name: GetAccessTokenSinceDate :one
-SELECT id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce FROM provider_access_tokens WHERE provider = $1 AND project_id = $2 AND updated_at >= $3
+SELECT id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce, encrypted_token_salt FROM provider_access_tokens WHERE provider = $1 AND project_id = $2 AND updated_at >= $3
 `
 
 type GetAccessTokenSinceDateParams struct {
@@ -125,6 +128,7 @@ func (q *Queries) GetAccessTokenSinceDate(ctx context.Context, arg GetAccessToke
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EnrollmentNonce,
+		&i.EncryptedTokenSalt,
 	)
 	return i, err
 }
@@ -142,7 +146,7 @@ ON CONFLICT (project_id, provider)
                   enrollment_nonce = $6,
                   updated_at = NOW()
 WHERE provider_access_tokens.project_id = $1 AND provider_access_tokens.provider = $2
-RETURNING id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce
+RETURNING id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce, encrypted_token_salt
 `
 
 type UpsertAccessTokenParams struct {
@@ -174,6 +178,7 @@ func (q *Queries) UpsertAccessToken(ctx context.Context, arg UpsertAccessTokenPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EnrollmentNonce,
+		&i.EncryptedTokenSalt,
 	)
 	return i, err
 }

@@ -13,7 +13,7 @@ import (
 )
 
 const createSessionState = `-- name: CreateSessionState :one
-INSERT INTO session_store (provider, project_id, remote_user, session_state, owner_filter, redirect_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, provider, project_id, port, owner_filter, session_state, created_at, redirect_url, remote_user
+INSERT INTO session_store (provider, project_id, remote_user, session_state, owner_filter, redirect_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, provider, project_id, port, owner_filter, session_state, created_at, redirect_url, remote_user, session_state_salt
 `
 
 type CreateSessionStateParams struct {
@@ -45,6 +45,7 @@ func (q *Queries) CreateSessionState(ctx context.Context, arg CreateSessionState
 		&i.CreatedAt,
 		&i.RedirectUrl,
 		&i.RemoteUser,
+		&i.SessionStateSalt,
 	)
 	return i, err
 }
@@ -82,15 +83,16 @@ func (q *Queries) DeleteSessionStateByProjectID(ctx context.Context, arg DeleteS
 }
 
 const getProjectIDBySessionState = `-- name: GetProjectIDBySessionState :one
-SELECT provider, project_id, remote_user, owner_filter, redirect_url FROM session_store WHERE session_state = $1
+SELECT provider, project_id, remote_user, owner_filter, redirect_url, session_state_salt FROM session_store WHERE session_state = $1
 `
 
 type GetProjectIDBySessionStateRow struct {
-	Provider    string         `json:"provider"`
-	ProjectID   uuid.UUID      `json:"project_id"`
-	RemoteUser  sql.NullString `json:"remote_user"`
-	OwnerFilter sql.NullString `json:"owner_filter"`
-	RedirectUrl sql.NullString `json:"redirect_url"`
+	Provider         string         `json:"provider"`
+	ProjectID        uuid.UUID      `json:"project_id"`
+	RemoteUser       sql.NullString `json:"remote_user"`
+	OwnerFilter      sql.NullString `json:"owner_filter"`
+	RedirectUrl      sql.NullString `json:"redirect_url"`
+	SessionStateSalt []byte         `json:"session_state_salt"`
 }
 
 func (q *Queries) GetProjectIDBySessionState(ctx context.Context, sessionState string) (GetProjectIDBySessionStateRow, error) {
@@ -102,6 +104,7 @@ func (q *Queries) GetProjectIDBySessionState(ctx context.Context, sessionState s
 		&i.RemoteUser,
 		&i.OwnerFilter,
 		&i.RedirectUrl,
+		&i.SessionStateSalt,
 	)
 	return i, err
 }

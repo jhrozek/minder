@@ -545,15 +545,16 @@ type Provider struct {
 }
 
 type ProviderAccessToken struct {
-	ID              int32          `json:"id"`
-	Provider        string         `json:"provider"`
-	ProjectID       uuid.UUID      `json:"project_id"`
-	OwnerFilter     sql.NullString `json:"owner_filter"`
-	EncryptedToken  string         `json:"encrypted_token"`
-	ExpirationTime  time.Time      `json:"expiration_time"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
-	EnrollmentNonce sql.NullString `json:"enrollment_nonce"`
+	ID                 int32          `json:"id"`
+	Provider           string         `json:"provider"`
+	ProjectID          uuid.UUID      `json:"project_id"`
+	OwnerFilter        sql.NullString `json:"owner_filter"`
+	EncryptedToken     string         `json:"encrypted_token"`
+	ExpirationTime     time.Time      `json:"expiration_time"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	EnrollmentNonce    sql.NullString `json:"enrollment_nonce"`
+	EncryptedTokenSalt []byte         `json:"encrypted_token_salt"`
 }
 
 type ProviderGithubAppInstallation struct {
@@ -650,15 +651,16 @@ type RuleType struct {
 }
 
 type SessionStore struct {
-	ID           int32          `json:"id"`
-	Provider     string         `json:"provider"`
-	ProjectID    uuid.UUID      `json:"project_id"`
-	Port         sql.NullInt32  `json:"port"`
-	OwnerFilter  sql.NullString `json:"owner_filter"`
-	SessionState string         `json:"session_state"`
-	CreatedAt    time.Time      `json:"created_at"`
-	RedirectUrl  sql.NullString `json:"redirect_url"`
-	RemoteUser   sql.NullString `json:"remote_user"`
+	ID               int32          `json:"id"`
+	Provider         string         `json:"provider"`
+	ProjectID        uuid.UUID      `json:"project_id"`
+	Port             sql.NullInt32  `json:"port"`
+	OwnerFilter      sql.NullString `json:"owner_filter"`
+	SessionState     string         `json:"session_state"`
+	CreatedAt        time.Time      `json:"created_at"`
+	RedirectUrl      sql.NullString `json:"redirect_url"`
+	RemoteUser       sql.NullString `json:"remote_user"`
+	SessionStateSalt []byte         `json:"session_state_salt"`
 }
 
 type Subscription struct {
