@@ -70,12 +70,13 @@ func (mr *MockEngineMockRecorder) DecryptString(arg0, arg1 any) *gomock.Call {
 }
 
 // EncryptOAuthToken mocks base method.
-func (m *MockEngine) EncryptOAuthToken(arg0 []byte) ([]byte, error) {
+func (m *MockEngine) EncryptOAuthToken(arg0 []byte) (string, []byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EncryptOAuthToken", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].([]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // EncryptOAuthToken indicates an expected call of EncryptOAuthToken.
@@ -85,12 +86,13 @@ func (mr *MockEngineMockRecorder) EncryptOAuthToken(arg0 any) *gomock.Call {
 }
 
 // EncryptString mocks base method.
-func (m *MockEngine) EncryptString(arg0 string) (string, error) {
+func (m *MockEngine) EncryptString(arg0 string) (string, []byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EncryptString", arg0)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // EncryptString indicates an expected call of EncryptString.

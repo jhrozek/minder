@@ -438,7 +438,7 @@ func createServer(ctrl *gomock.Controller, repoServiceSetup repoMockBuilder, git
 	// TODO: this provider logic should be better encapsulated from the controlplane
 	mockCryptoEngine := mockcrypto.NewMockEngine(ctrl)
 	mockCryptoEngine.EXPECT().
-		DecryptOAuthToken(gomock.Any()).
+		DecryptOAuthToken(gomock.Any(), gomock.Any()).
 		Return(oauth2.Token{AccessToken: accessToken}, nil).
 		AnyTimes()
 	cancelable, cancel := context.WithCancel(context.Background())

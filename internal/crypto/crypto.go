@@ -36,11 +36,15 @@ import (
 	serverconfig "github.com/stacklok/minder/internal/config/server"
 )
 
+// TODO: The crypto-level engine should not export high level functions like EncryptOAuthToken and DecryptOAuthToken but
+// instead should only provide low level functions like EncryptBytes and DecryptBytes. The high level functions should be
+// wrapping the low level engine
+
 // Engine provides all functions to encrypt and decrypt data
 type Engine interface {
-	EncryptOAuthToken(data []byte) ([]byte, error)
+	EncryptOAuthToken(data []byte) (string, []byte, error)
 	DecryptOAuthToken(salt []byte, encToken string) (oauth2.Token, error)
-	EncryptString(data string) (string, error)
+	EncryptString(data string) (string, []byte, error)
 	DecryptString(salt []byte, encData string) (string, error)
 }
 
@@ -73,37 +77,48 @@ func NewEngine(tokenKey string) Engine {
 }
 
 // EncryptBytes encrypts a row of data using AES-CFB.
-func EncryptBytes(key string, data []byte) ([]byte, error) {
-	salt := make([]byte, 16)
-	_, err := rand.Read(salt)
+func EncryptBytes(
+	key string, data []byte,
+) (encrypted []byte, salt []byte, err error) {
+	salt = make([]byte, 16)
+	_, err = rand.Read(salt)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	if len(data) > 1024*1024*32 {
-		return nil, status.Errorf(codes.InvalidArgument, "data is too large (>32MB)")
+		err = status.Errorf(codes.InvalidArgument, "data is too large (>32MB)")
+		return
 	}
 	block, err := aes.NewCipher(deriveKey(key, salt))
 	if err != nil {
-		return nil, status.Errorf(codes.Unknown, "failed to create cipher: %s", err)
+		err = status.Errorf(codes.Unknown, "failed to create cipher: %s", err)
+		return
 	}
 
 	// The IV needs to be unique, but not secure. Therefore it's common to include it at the beginning of the ciphertext.
 	ciphertext := make([]byte, aes.BlockSize+len(data))
 	iv := ciphertext[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, status.Errorf(codes.Unknown, "failed to read random bytes: %s", err)
+	if _, readErr := io.ReadFull(rand.Reader, iv); readErr != nil {
+		err = status.Errorf(codes.Unknown, "failed to read random bytes: %s", readErr)
+		return
 	}
 
 	stream := cipher.NewCFBEncrypter(block, iv)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], []byte(data))
 
-	return ciphertext, nil
+	encrypted = ciphertext
+	return
 }
 
 // EncryptOAuthToken encrypts an oauth token
-func (e *AesCfbEngine) EncryptOAuthToken(data []byte) ([]byte, error) {
-	return EncryptBytes(e.encryptionKey, data)
+func (e *AesCfbEngine) EncryptOAuthToken(data []byte) (string, []byte, error) {
+	encryptedToken, salt, err := EncryptBytes(e.encryptionKey, data)
+	if err != nil {
+		return "", nil, err
+	}
+	encodedToken := base64.StdEncoding.EncodeToString(encryptedToken)
+	return encodedToken, salt, nil
 }
 
 // DecryptOAuthToken decrypts an encrypted oauth token
@@ -131,17 +146,17 @@ func (e *AesCfbEngine) DecryptOAuthToken(salt []byte, encToken string) (oauth2.T
 }
 
 // EncryptString encrypts a string
-func (e *AesCfbEngine) EncryptString(data string) (string, error) {
+func (e *AesCfbEngine) EncryptString(data string) (string, []byte, error) {
 	var encoded string
 
-	encrypted, err := EncryptBytes(e.encryptionKey, []byte(data))
+	encrypted, salt, err := EncryptBytes(e.encryptionKey, []byte(data))
 	if err != nil {
-		return encoded, err
+		return encoded, nil, err
 	}
 
 	encoded = base64.StdEncoding.EncodeToString(encrypted)
 
-	return encoded, nil
+	return encoded, salt, nil
 }
 
 // DecryptString decrypts an encrypted string

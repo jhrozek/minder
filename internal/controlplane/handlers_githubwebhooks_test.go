@@ -249,16 +249,17 @@ func (s *UnitTestSuite) TestHandleWebHookRepository() {
 	byteToken, err := json.Marshal(token)
 	require.NoError(t, err, "failed to marshal decryptedToken")
 	// encrypt the token
-	encryptedToken, err := crypto.EncryptBytes("test", byteToken)
+	encryptedToken, salt, err := crypto.EncryptBytes("test", byteToken)
 	require.NoError(t, err, "failed to encrypt token")
 
 	// Encode the token to Base64
 	encodedToken := base64.StdEncoding.EncodeToString(encryptedToken)
 	mockStore.EXPECT().GetAccessTokenByProjectID(gomock.Any(), gomock.Any()).Return(db.ProviderAccessToken{
-		EncryptedToken: encodedToken,
-		ID:             1,
-		ProjectID:      projectID,
-		Provider:       providerName,
+		EncryptedToken:     encodedToken,
+		EncryptedTokenSalt: salt,
+		ID:                 1,
+		ProjectID:          projectID,
+		Provider:           providerName,
 	}, nil)
 
 	mockStore.EXPECT().

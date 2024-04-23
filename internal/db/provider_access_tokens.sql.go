@@ -135,27 +135,29 @@ func (q *Queries) GetAccessTokenSinceDate(ctx context.Context, arg GetAccessToke
 
 const upsertAccessToken = `-- name: UpsertAccessToken :one
 INSERT INTO provider_access_tokens
-(project_id, provider, encrypted_token, expiration_time, owner_filter, enrollment_nonce)
+(project_id, provider, encrypted_token, expiration_time, owner_filter, enrollment_nonce, encrypted_token_salt)
 VALUES
-    ($1, $2, $3, $4, $5, $6)
+    ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (project_id, provider)
     DO UPDATE SET
                   encrypted_token = $3,
                   expiration_time = $4,
                   owner_filter = $5,
                   enrollment_nonce = $6,
+                  encrypted_token_salt = $7,
                   updated_at = NOW()
 WHERE provider_access_tokens.project_id = $1 AND provider_access_tokens.provider = $2
 RETURNING id, provider, project_id, owner_filter, encrypted_token, expiration_time, created_at, updated_at, enrollment_nonce, encrypted_token_salt
 `
 
 type UpsertAccessTokenParams struct {
-	ProjectID       uuid.UUID      `json:"project_id"`
-	Provider        string         `json:"provider"`
-	EncryptedToken  string         `json:"encrypted_token"`
-	ExpirationTime  time.Time      `json:"expiration_time"`
-	OwnerFilter     sql.NullString `json:"owner_filter"`
-	EnrollmentNonce sql.NullString `json:"enrollment_nonce"`
+	ProjectID          uuid.UUID      `json:"project_id"`
+	Provider           string         `json:"provider"`
+	EncryptedToken     string         `json:"encrypted_token"`
+	ExpirationTime     time.Time      `json:"expiration_time"`
+	OwnerFilter        sql.NullString `json:"owner_filter"`
+	EnrollmentNonce    sql.NullString `json:"enrollment_nonce"`
+	EncryptedTokenSalt []byte         `json:"encrypted_token_salt"`
 }
 
 func (q *Queries) UpsertAccessToken(ctx context.Context, arg UpsertAccessTokenParams) (ProviderAccessToken, error) {
@@ -166,6 +168,7 @@ func (q *Queries) UpsertAccessToken(ctx context.Context, arg UpsertAccessTokenPa
 		arg.ExpirationTime,
 		arg.OwnerFilter,
 		arg.EnrollmentNonce,
+		arg.EncryptedTokenSalt,
 	)
 	var i ProviderAccessToken
 	err := row.Scan(

@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -187,12 +186,10 @@ func (p *ghProviderService) CreateGitHubOAuthProvider(
 	}
 
 	// encode token
-	encryptedToken, err := p.cryptoEngine.EncryptOAuthToken(jsonData)
+	encodedToken, salt, err := p.cryptoEngine.EncryptOAuthToken(jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("error encoding token: %w", err)
 	}
-
-	encodedToken := base64.StdEncoding.EncodeToString(encryptedToken)
 
 	_, err = qtx.UpsertAccessToken(ctx, db.UpsertAccessTokenParams{
 		ProjectID:      stateData.ProjectID,
@@ -203,6 +200,7 @@ func (p *ghProviderService) CreateGitHubOAuthProvider(
 			Valid:  true,
 			String: state,
 		},
+		EncryptedTokenSalt: salt,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error inserting access token: %w", err)

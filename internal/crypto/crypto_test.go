@@ -16,7 +16,6 @@
 package crypto
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"testing"
 
@@ -29,9 +28,9 @@ import (
 func TestEncryptDecryptBytes(t *testing.T) {
 	t.Parallel()
 
-	encrypted, err := EncryptBytes("test", []byte("test"))
+	encrypted, salt, err := EncryptBytes("test", []byte("test"))
 	assert.Nil(t, err)
-	decrypted, err := decryptBytes("test", encrypted)
+	decrypted, err := decryptBytes("test", salt, encrypted)
 	assert.Nil(t, err)
 	assert.Equal(t, "test", string(decrypted))
 }
@@ -40,7 +39,7 @@ func TestEncryptTooLarge(t *testing.T) {
 	t.Parallel()
 
 	large := make([]byte, 34000000) // More than 32 MB
-	_, err := EncryptBytes("test", large)
+	_, _, err := EncryptBytes("test", large)
 	assert.ErrorIs(t, err, status.Error(codes.InvalidArgument, "data is too large (>32MB)"))
 }
 
@@ -94,9 +93,9 @@ func TestEncryptDecryptString(t *testing.T) {
 	}
 
 	originalString := "testString"
-	encrypted, err := engine.EncryptString(originalString)
+	encrypted, salt, err := engine.EncryptString(originalString)
 	assert.Nil(t, err)
-	decrypted, err := engine.DecryptString(encrypted)
+	decrypted, err := engine.DecryptString(salt, encrypted)
 	assert.Nil(t, err)
 	assert.Equal(t, originalString, decrypted)
 }
@@ -113,14 +112,12 @@ func TestEncryptDecryptOAuthToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encryptedToken, err := engine.EncryptOAuthToken(jsonToken)
+	encodedToken, salt, err := engine.EncryptOAuthToken(jsonToken)
 	if err != nil {
 		t.Fatal(err)
 	}
-	encodedToken := base64.StdEncoding.EncodeToString(encryptedToken)
-	assert.Nil(t, err)
 
-	decrypted, err := engine.DecryptOAuthToken(encodedToken, nil)
+	decrypted, err := engine.DecryptOAuthToken(salt, encodedToken)
 	assert.Nil(t, err)
 	assert.Equal(t, oauthToken, decrypted)
 }

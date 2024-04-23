@@ -48,7 +48,7 @@ const (
 	fakeTokenKey = "foo-bar"
 )
 
-func generateFakeAccessToken(t *testing.T) string {
+func generateFakeAccessToken(t *testing.T) (string, []byte) {
 	t.Helper()
 
 	ftoken := &oauth2.Token{
@@ -64,10 +64,10 @@ func generateFakeAccessToken(t *testing.T) string {
 	require.NoError(t, err, "expected no error")
 
 	// encode token
-	encryptedToken, err := crypto.EncryptBytes(fakeTokenKey, jsonData)
+	encryptedToken, salt, err := crypto.EncryptBytes(fakeTokenKey, jsonData)
 	require.NoError(t, err, "expected no error")
 
-	return base64.StdEncoding.EncodeToString(encryptedToken)
+	return base64.StdEncoding.EncodeToString(encryptedToken), salt
 }
 
 func TestExecutor_handleEntityEvent(t *testing.T) {
@@ -88,7 +88,7 @@ func TestExecutor_handleEntityEvent(t *testing.T) {
 	repositoryID := uuid.New()
 	executionID := uuid.New()
 
-	authtoken := generateFakeAccessToken(t)
+	authtoken, salt := generateFakeAccessToken(t)
 
 	// -- start expectations
 
@@ -117,7 +117,8 @@ func TestExecutor_handleEntityEvent(t *testing.T) {
 				ProjectID: projectID,
 			}).
 		Return(db.ProviderAccessToken{
-			EncryptedToken: authtoken,
+			EncryptedToken:     authtoken,
+			EncryptedTokenSalt: salt,
 		}, nil)
 
 	// list one profile

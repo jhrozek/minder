@@ -17,7 +17,6 @@ package controlplane
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -112,24 +111,27 @@ func (s *Server) GetAuthorizationURL(ctx context.Context,
 	}
 
 	var redirectUrl sql.NullString
+	var redirectUrlSalt []byte
 	// Empty redirect URL means null string (default condition)
 	if req.GetRedirectUrl() != "" {
-		encryptedRedirectUrl, err := s.cryptoEngine.EncryptString(*req.RedirectUrl)
+		encryptedRedirectUrl, salt, err := s.cryptoEngine.EncryptString(*req.RedirectUrl)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "error encrypting redirect URL: %s", err)
 		}
 		redirectUrl = sql.NullString{Valid: true, String: encryptedRedirectUrl}
+		redirectUrlSalt = salt
 	}
 
 	// Insert the new session state into the database along with the user's project ID
 	// retrieved from the JWT token
 	_, err = s.store.CreateSessionState(ctx, db.CreateSessionStateParams{
-		Provider:     provider,
-		ProjectID:    projectID,
-		RemoteUser:   sql.NullString{Valid: user != "", String: user},
-		SessionState: state,
-		OwnerFilter:  owner,
-		RedirectUrl:  redirectUrl,
+		Provider:         provider,
+		ProjectID:        projectID,
+		RemoteUser:       sql.NullString{Valid: user != "", String: user},
+		SessionState:     state,
+		OwnerFilter:      owner,
+		RedirectUrl:      redirectUrl,
+		SessionStateSalt: redirectUrlSalt,
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unknown, "error inserting session state: %s", err)
@@ -466,11 +468,10 @@ func (s *Server) StoreProviderToken(ctx context.Context,
 	}
 
 	// encode token
-	encryptedToken, err := s.cryptoEngine.EncryptOAuthToken(jsonData)
+	encodedToken, salt, err := s.cryptoEngine.EncryptOAuthToken(jsonData)
 	if err != nil {
 		return nil, err
 	}
-	encodedToken := base64.StdEncoding.EncodeToString(encryptedToken)
 
 	// additionally, add an owner
 	var owner sql.NullString
@@ -481,10 +482,11 @@ func (s *Server) StoreProviderToken(ctx context.Context,
 	}
 
 	_, err = s.store.UpsertAccessToken(ctx, db.UpsertAccessTokenParams{
-		ProjectID:      projectID,
-		Provider:       provider.Name,
-		EncryptedToken: encodedToken,
-		OwnerFilter:    owner,
+		ProjectID:          projectID,
+		Provider:           provider.Name,
+		EncryptedToken:     encodedToken,
+		OwnerFilter:        owner,
+		EncryptedTokenSalt: salt,
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error storing access token: %v", err)

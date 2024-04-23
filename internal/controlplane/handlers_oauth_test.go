@@ -29,6 +29,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v2/jwt/openid"
 	"github.com/stretchr/testify/assert"
@@ -413,7 +415,7 @@ func TestProviderCallback(t *testing.T) {
 			s, _ := newDefaultServer(t, store, opts...)
 
 			var err error
-			encryptedUrlString, err := s.cryptoEngine.EncryptString(tc.redirectUrl)
+			encryptedUrlString, salt, err := s.cryptoEngine.EncryptString(tc.redirectUrl)
 			if err != nil {
 				t.Fatalf("Failed to encrypt redirect URL: %v", err)
 			}
@@ -430,9 +432,10 @@ func TestProviderCallback(t *testing.T) {
 
 			store.EXPECT().GetProjectIDBySessionState(gomock.Any(), state).Return(
 				db.GetProjectIDBySessionStateRow{
-					ProjectID:   projectID,
-					RedirectUrl: encryptedUrl,
-					RemoteUser:  tc.remoteUser,
+					ProjectID:        projectID,
+					RedirectUrl:      encryptedUrl,
+					RemoteUser:       tc.remoteUser,
+					SessionStateSalt: salt,
 				}, nil)
 
 			if tc.existingProvider {
@@ -824,9 +827,9 @@ func (p partialDbParamsMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	typedX.SessionState = ""
-
-	return typedX == p.value
+	return cmp.Equal(typedX, p.value,
+		cmpopts.IgnoreFields(db.CreateSessionStateParams{}, "SessionStateSalt"),
+		cmpopts.IgnoreFields(db.CreateSessionStateParams{}, "SessionState"))
 }
 
 func (m partialDbParamsMatcher) String() string {

@@ -22,7 +22,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -146,7 +145,7 @@ func TestProviderService_CreateGitHubOAuthProvider(t *testing.T) {
 
 	mocks.cryptoMocks.EXPECT().
 		EncryptOAuthToken(gomock.Any()).
-		Return([]byte("my-encrypted-token"), nil)
+		Return("my-encrypted-token", []byte{}, nil)
 
 	dbProv, err := provSvc.CreateGitHubOAuthProvider(
 		context.Background(),
@@ -176,14 +175,14 @@ func TestProviderService_CreateGitHubOAuthProvider(t *testing.T) {
 	dbToken, err := mocks.fakeStore.GetAccessTokenByProvider(context.Background(), dbProv.Name)
 	require.NoError(t, err)
 	require.Len(t, dbToken, 1)
-	require.Equal(t, dbToken[0].EncryptedToken, base64.StdEncoding.EncodeToString([]byte("my-encrypted-token")))
+	require.Equal(t, dbToken[0].EncryptedToken, "my-encrypted-token")
 	require.Equal(t, dbToken[0].OwnerFilter, sql.NullString{String: "testorg", Valid: true})
 	require.Equal(t, dbToken[0].EnrollmentNonce, sql.NullString{String: stateNonce, Valid: true})
 
 	// test updating token
 	mocks.cryptoMocks.EXPECT().
 		EncryptOAuthToken(gomock.Any()).
-		Return([]byte("my-new-encrypted-token"), nil)
+		Return("my-new-encrypted-token", []byte{}, nil)
 
 	dbProvUpdated, err := provSvc.CreateGitHubOAuthProvider(
 		context.Background(),
@@ -213,7 +212,7 @@ func TestProviderService_CreateGitHubOAuthProvider(t *testing.T) {
 	dbTokenUpdate, err := mocks.fakeStore.GetAccessTokenByProvider(context.Background(), dbProv.Name)
 	require.NoError(t, err)
 	require.Len(t, dbTokenUpdate, 1)
-	require.Equal(t, dbTokenUpdate[0].EncryptedToken, base64.StdEncoding.EncodeToString([]byte("my-new-encrypted-token")))
+	require.Equal(t, dbTokenUpdate[0].EncryptedToken, "my-new-encrypted-token")
 	require.Equal(t, dbTokenUpdate[0].OwnerFilter, sql.NullString{String: "testorg", Valid: true})
 	require.Equal(t, dbTokenUpdate[0].EnrollmentNonce, sql.NullString{String: stateNonceUpdate, Valid: true})
 }

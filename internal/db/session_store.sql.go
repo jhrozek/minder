@@ -13,16 +13,17 @@ import (
 )
 
 const createSessionState = `-- name: CreateSessionState :one
-INSERT INTO session_store (provider, project_id, remote_user, session_state, owner_filter, redirect_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, provider, project_id, port, owner_filter, session_state, created_at, redirect_url, remote_user, session_state_salt
+INSERT INTO session_store (provider, project_id, remote_user, session_state, owner_filter, redirect_url, session_state_salt) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, provider, project_id, port, owner_filter, session_state, created_at, redirect_url, remote_user, session_state_salt
 `
 
 type CreateSessionStateParams struct {
-	Provider     string         `json:"provider"`
-	ProjectID    uuid.UUID      `json:"project_id"`
-	RemoteUser   sql.NullString `json:"remote_user"`
-	SessionState string         `json:"session_state"`
-	OwnerFilter  sql.NullString `json:"owner_filter"`
-	RedirectUrl  sql.NullString `json:"redirect_url"`
+	Provider         string         `json:"provider"`
+	ProjectID        uuid.UUID      `json:"project_id"`
+	RemoteUser       sql.NullString `json:"remote_user"`
+	SessionState     string         `json:"session_state"`
+	OwnerFilter      sql.NullString `json:"owner_filter"`
+	RedirectUrl      sql.NullString `json:"redirect_url"`
+	SessionStateSalt []byte         `json:"session_state_salt"`
 }
 
 func (q *Queries) CreateSessionState(ctx context.Context, arg CreateSessionStateParams) (SessionStore, error) {
@@ -33,6 +34,7 @@ func (q *Queries) CreateSessionState(ctx context.Context, arg CreateSessionState
 		arg.SessionState,
 		arg.OwnerFilter,
 		arg.RedirectUrl,
+		arg.SessionStateSalt,
 	)
 	var i SessionStore
 	err := row.Scan(

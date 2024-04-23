@@ -64,7 +64,7 @@ func TestDeleteProvider(t *testing.T) {
 
 	mockCryptoEngine := mockcrypto.NewMockEngine(ctrl)
 	mockCryptoEngine.EXPECT().
-		DecryptOAuthToken(gomock.Any()).
+		DecryptOAuthToken(gomock.Any(), gomock.Any()).
 		Return(oauth2.Token{AccessToken: accessToken}, nil).AnyTimes()
 
 	mockStore := mockdb.NewMockStore(ctrl)
@@ -146,7 +146,7 @@ func TestDeleteProviderByID(t *testing.T) {
 
 	mockCryptoEngine := mockcrypto.NewMockEngine(ctrl)
 	mockCryptoEngine.EXPECT().
-		DecryptOAuthToken(gomock.Any()).
+		DecryptOAuthToken(gomock.Any(), gomock.Any()).
 		Return(oauth2.Token{AccessToken: accessToken}, nil).AnyTimes()
 
 	mockStore := mockdb.NewMockStore(ctrl)
