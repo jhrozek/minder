@@ -500,6 +500,7 @@ func TestProviderCallback(t *testing.T) {
 	}, {
 		name:                       "No existing provider",
 		redirectUrl:                "http://localhost:8080",
+		config:                     []byte(`{}`),
 		code:                       307,
 		projectIDBySessionNumCalls: 2,
 		storeMockSetup: func(store *mockdb.MockStore) {
@@ -513,7 +514,7 @@ func TestProviderCallback(t *testing.T) {
 		storeMockSetup: func(store *mockdb.MockStore) {
 			withProviderNotFound(store)
 		},
-		config: []byte(`{"missing_github_key": true}`),
+		config: []byte(`{`),
 		code:   http.StatusBadRequest,
 	}}
 
