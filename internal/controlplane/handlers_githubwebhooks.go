@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/stacklok/minder/internal/providers/github/clients"
 	"io"
 	"mime"
 	"net/http"
@@ -1023,8 +1024,27 @@ func (s *Server) processInstallationRepositoriesAppEvent(
 		return nil, errors.New("invalid project id")
 	}
 
+	dbProv, err := s.providerStore.GetByID(ctx, installation.ProviderID.UUID)
+	if err != nil {
+		return nil, fmt.Errorf("could not determine provider id: %v", err)
+	}
+
+	providerConfig, _, err := clients.ParseV1AppConfig(dbProv.Definition)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse provider config: %v", err)
+	}
+
+	addedRepos := []*repo{}
+	autoRegEntities := providerConfig.GetAutoRegistration().GetEntities()
+	repoAutoReg, ok := autoRegEntities[string(pb.RepositoryEntity)]
+	if ok && repoAutoReg.GetEnabled() == true {
+		addedRepos = event.GetRepositoriesAdded()
+	} else {
+		zerolog.Ctx(ctx).Info().Msg("auto-registration is disabled for repositories")
+	}
+
 	results := make([]*processingResult, 0, len(event.GetRepositoriesAdded())+len(event.GetRepositoriesRemoved()))
-	for _, repo := range event.GetRepositoriesAdded() {
+	for _, repo := range addedRepos {
 		// caveat: we're accessing the database once for every
 		// repository, which might be inefficient at scale.
 		res, err := s.repositoryAdded(
