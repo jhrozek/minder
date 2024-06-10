@@ -137,7 +137,7 @@ func (g *githubProviderManager) Build(ctx context.Context, config *db.Provider) 
 
 	cli, err := clients.NewGitHubAppProvider(
 		cfg,
-		g.config.GitHubApp,
+		g.config.GetGitHubAppConfig(),
 		g.restClientCache,
 		creds.credential,
 		g.fallbackTokenClient,
@@ -270,18 +270,18 @@ func (g *githubProviderManager) createProviderWithInstallationToken(
 		return nil, fmt.Errorf("error parsing github app config: %w", err)
 	}
 
-	privateKey, err := g.config.GitHubApp.GetPrivateKey()
+	privateKey, err := g.config.GetGitHubAppConfig().GetPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("error reading private key: %w", err)
 	}
 
-	credential := credentials.NewGitHubInstallationTokenCredential(ctx, g.config.GitHubApp.AppID, privateKey, cfg.Endpoint,
+	credential := credentials.NewGitHubInstallationTokenCredential(ctx, g.config.GetGitHubAppConfig().AppID, privateKey, cfg.Endpoint,
 		installation.AppInstallationID)
 
 	zerolog.Ctx(ctx).
 		Debug().
-		Str("github-app-name", g.config.GitHubApp.AppName).
-		Int64("github-app-id", g.config.GitHubApp.AppID).
+		Str("github-app-name", g.config.GetGitHubAppConfig().AppName).
+		Int64("github-app-id", g.config.GetGitHubAppConfig().AppID).
 		Int64("github-app-installation-id", installation.AppInstallationID).
 		Msg("created provider with installation token")
 
@@ -354,7 +354,7 @@ func (g *githubProviderManager) NewOAuthConfig(providerClass db.ProviderClass, c
 		oauthClientConfig = &g.config.GitHub.OAuthClientConfig
 		oauthConfig = githubOauthConfig(oauthClientConfig.RedirectURI, cli)
 	case db.ProviderClassGithubApp:
-		oauthClientConfig = &g.config.GitHubApp.OAuthClientConfig
+		oauthClientConfig = &g.config.GetGitHubAppConfig().OAuthClientConfig
 		oauthConfig = githubAppOauthConfig(oauthClientConfig.RedirectURI)
 	default:
 		err = fmt.Errorf("invalid provider class: %s", providerClass)

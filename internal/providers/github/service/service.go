@@ -133,8 +133,8 @@ func (p *ghProviderService) CreateGitHubAppProvider(
 				_, delegate, err := p.ghClientFactory.BuildAppClient(
 					"",
 					credential,
-					p.config.GitHubApp.AppName,
-					p.config.GitHubApp.UserID,
+					p.config.GetGitHubAppConfig().AppName,
+					p.config.GetGitHubAppConfig().UserID,
 					false, // isOrg = false, as per original logic
 				)
 				if err != nil {
@@ -352,7 +352,7 @@ func (p *ghProviderService) DeleteGitHubAppInstallation(ctx context.Context, ins
 }
 
 func (p *ghProviderService) ValidateGitHubAppWebhookPayload(r *http.Request) (payload []byte, err error) {
-	secret, err := p.config.GitHubApp.GetWebhookSecret()
+	secret, err := p.config.GetGitHubAppConfig().GetWebhookSecret()
 	if err != nil {
 		return nil, err
 	}
@@ -372,11 +372,11 @@ func (p *ghProviderService) DeleteInstallation(ctx context.Context, providerID u
 		return fmt.Errorf("error getting installation: %w", err)
 	}
 
-	privateKey, err := p.config.GitHubApp.GetPrivateKey()
+	privateKey, err := p.config.GetGitHubAppConfig().GetPrivateKey()
 	if err != nil {
 		return fmt.Errorf("error getting GitHub App private key: %w", err)
 	}
-	jwt, err := credentials.CreateGitHubAppJWT(p.config.GitHubApp.AppID, privateKey)
+	jwt, err := credentials.CreateGitHubAppJWT(p.config.GetGitHubAppConfig().AppID, privateKey)
 	if err != nil {
 		return fmt.Errorf("error creating GitHub App JWT: %w", err)
 	}
@@ -424,11 +424,11 @@ func (p *ghProviderService) VerifyProviderTokenIdentity(ctx context.Context, rem
 }
 
 func (p *ghProviderService) getInstallationOwner(ctx context.Context, installationID int64) (*github.User, error) {
-	privateKey, err := p.config.GitHubApp.GetPrivateKey()
+	privateKey, err := p.config.GetGitHubAppConfig().GetPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("error getting GitHub App private key: %w", err)
 	}
-	jwt, err := credentials.CreateGitHubAppJWT(p.config.GitHubApp.AppID, privateKey)
+	jwt, err := credentials.CreateGitHubAppJWT(p.config.GetGitHubAppConfig().AppID, privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("error creating GitHub App JWT: %w", err)
 	}

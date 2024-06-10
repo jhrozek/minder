@@ -176,11 +176,12 @@ func getInstallationTokenCredential(
 		return nil, fmt.Errorf("error parsing github app config: %w", err)
 	}
 
-	privateKey, err := provCfg.GitHubApp.GetPrivateKey()
+	privateKey, err := provCfg.GetGitHubAppConfig().GetPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("error reading private key: %w", err)
 	}
 
-	return credentials.NewGitHubInstallationTokenCredential(ctx, provCfg.GitHubApp.AppID, privateKey, cfg.Endpoint,
+	return credentials.NewGitHubInstallationTokenCredential(ctx,
+		provCfg.GetGitHubAppConfig().AppID, privateKey, cfg.Endpoint,
 		installation.AppInstallationID), nil
 }

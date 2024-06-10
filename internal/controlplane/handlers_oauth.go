@@ -164,7 +164,7 @@ func (s *Server) GetAuthorizationURL(ctx context.Context,
 
 	var authorizationURL string
 	if slices.Contains(providerDef.AuthorizationFlows, db.AuthorizationFlowGithubAppFlow) {
-		gitHubAppConfig := s.cfg.Provider.GitHubApp
+		gitHubAppConfig := s.cfg.Provider.GetGitHubAppConfig()
 		if gitHubAppConfig == nil || gitHubAppConfig.AppName == "" {
 			return nil, status.Errorf(codes.Internal, "error getting GitHub App config: %s", err)
 		}

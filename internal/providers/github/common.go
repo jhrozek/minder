@@ -980,11 +980,12 @@ func CanHandleOwner(_ context.Context, prov db.Provider, owner string) bool {
 }
 
 // NewFallbackTokenClient creates a new GitHub client that uses the GitHub App's fallback token
-func NewFallbackTokenClient(appConfig config.ProviderConfig) *github.Client {
-	if appConfig.GitHubApp == nil {
+func NewFallbackTokenClient(providerConfig config.ProviderConfig) *github.Client {
+	ghAppConfig := providerConfig.GetGitHubAppConfig()
+	if ghAppConfig == nil {
 		return nil
 	}
-	fallbackToken, err := appConfig.GitHubApp.GetFallbackToken()
+	fallbackToken, err := ghAppConfig.GetFallbackToken()
 	if err != nil || fallbackToken == "" {
 		return nil
 	}

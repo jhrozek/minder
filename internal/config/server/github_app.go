@@ -48,6 +48,10 @@ type GitHubAppConfig struct {
 
 // GetPrivateKey returns the GitHub App's private key
 func (ghcfg *GitHubAppConfig) GetPrivateKey() (*rsa.PrivateKey, error) {
+	if ghcfg == nil {
+		return nil, fmt.Errorf("github app config is nil")
+	}
+
 	privateKeyBytes, err := config.ReadKey(ghcfg.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("error reading private key: %w", err)

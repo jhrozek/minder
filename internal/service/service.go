@@ -82,7 +82,7 @@ func AllInOneServerService(
 	}
 
 	serverconfig.FallbackOAuthClientConfigValues("github", &cfg.Provider.GitHub.OAuthClientConfig)
-	serverconfig.FallbackOAuthClientConfigValues("github-app", &cfg.Provider.GitHubApp.OAuthClientConfig)
+	serverconfig.FallbackOAuthClientConfigValues("github-app", &cfg.Provider.GetGitHubAppConfig().OAuthClientConfig)
 
 	profileSvc := profiles.NewProfileService(evt)
 	ruleSvc := ruletypes.NewRuleTypeService()
