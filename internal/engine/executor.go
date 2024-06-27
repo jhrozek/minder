@@ -109,6 +109,9 @@ func (e *executor) EvalEntityEvent(ctx context.Context, inf *entities.EntityInfo
 				return fmt.Errorf("error getting rules for entity: %w", err)
 			}
 
+			// get the selectors, parse and compile them
+			// selectors = getProfileSelectors(profile)
+
 			// Let's evaluate all the rules for this profile
 			err = profiles.TraverseRules(relevant, func(rule *pb.Profile_Rule) error {
 				// Get the engine evaluator for this rule type
@@ -117,6 +120,7 @@ func (e *executor) EvalEntityEvent(ctx context.Context, inf *entities.EntityInfo
 				if err != nil {
 					return err
 				}
+				// evalParams.SetSelectors(selectors)
 
 				// Update the lock lease at the end of the evaluation
 				defer e.updateLockLease(ctx, *inf.ExecutionID, evalParams)

@@ -260,6 +260,7 @@ func (e *EvalStatusParams) DecorateLogger(l zerolog.Logger) zerolog.Logger {
 type EvalParamsReader interface {
 	GetRule() *pb.Profile_Rule
 	GetIngestResult() *Result
+	// GetSelectors() *Selectors
 }
 
 // EvalParamsReadWriter is the interface used for a rule type engine, allows setting the ingestion result
@@ -277,4 +278,8 @@ type ActionsParams interface {
 	GetEvalStatusFromDb() *db.ListRuleEvaluationsByProfileIdRow
 	GetRuleType() *pb.RuleType
 	GetProfile() *pb.Profile
+}
+
+type Selector interface {
+	MatchEntity(entity protoreflect.ProtoMessage) bool
 }
