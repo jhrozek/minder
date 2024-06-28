@@ -17,6 +17,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	provsel "github.com/stacklok/minder/internal/providers/selectors"
 
 	"github.com/google/uuid"
 	"github.com/open-feature/go-sdk/openfeature"
@@ -30,6 +31,7 @@ import (
 	evalerrors "github.com/stacklok/minder/internal/engine/errors"
 	"github.com/stacklok/minder/internal/engine/ingestcache"
 	engif "github.com/stacklok/minder/internal/engine/interfaces"
+	"github.com/stacklok/minder/internal/engine/selectors"
 	"github.com/stacklok/minder/internal/history"
 	minderlogger "github.com/stacklok/minder/internal/logger"
 	"github.com/stacklok/minder/internal/profiles"
@@ -52,6 +54,7 @@ type executor struct {
 	metrics         *ExecutorMetrics
 	historyService  history.EvaluationHistoryService
 	featureFlags    openfeature.IClient
+	selBuilder      selectors.SelectionBuilder
 }
 
 // NewExecutor creates a new executor
@@ -61,6 +64,7 @@ func NewExecutor(
 	metrics *ExecutorMetrics,
 	historyService history.EvaluationHistoryService,
 	featureFlags openfeature.IClient,
+	selBuilder selectors.SelectionBuilder,
 ) Executor {
 	return &executor{
 		querier:         querier,
@@ -68,6 +72,7 @@ func NewExecutor(
 		metrics:         metrics,
 		historyService:  historyService,
 		featureFlags:    featureFlags,
+		selBuilder:      selBuilder,
 	}
 }
 
@@ -109,6 +114,16 @@ func (e *executor) EvalEntityEvent(ctx context.Context, inf *entities.EntityInfo
 				return fmt.Errorf("error getting rules for entity: %w", err)
 			}
 
+			// this could be a private function for now and we could just select an inf
+			selectors, err := e.selBuilder.NewSelectionFromProfile(inf.Type, profile.Selection)
+			if err != nil {
+				return fmt.Errorf("error creating selectors: %w", err)
+			}
+			selected, err := selectors.Select(provsel.EntityToSelectorEntity(ctx, provider, inf.Type, inf.Entity))
+			if err != nil {
+				return fmt.Errorf("error selecting entity: %w", err)
+			}
+
 			// Let's evaluate all the rules for this profile
 			err = profiles.TraverseRules(relevant, func(rule *pb.Profile_Rule) error {
 				// Get the engine evaluator for this rule type
@@ -121,8 +136,14 @@ func (e *executor) EvalEntityEvent(ctx context.Context, inf *entities.EntityInfo
 				// Update the lock lease at the end of the evaluation
 				defer e.updateLockLease(ctx, *inf.ExecutionID, evalParams)
 
-				// Evaluate the rule
-				evalErr := ruleEngine.Eval(ctx, inf, evalParams)
+				// Evaluate the rule if the entity is selected
+				// FIXME: refactor to a function?
+				var evalErr error
+				if selected {
+					evalErr = ruleEngine.Eval(ctx, inf, evalParams)
+				} else {
+					evalErr = evalerrors.NewErrEvaluationSkipped("entity not selected")
+				}
 				evalParams.SetEvalErr(evalErr)
 
 				// Perform actionEngine, if any

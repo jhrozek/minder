@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/stacklok/minder/internal/engine/selectors"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/open-feature/go-sdk/openfeature"
@@ -183,6 +184,11 @@ func AllInOneServerService(
 		return fmt.Errorf("unable to create metrics for executor: %w", err)
 	}
 
+	selEnv, err := selectors.NewEnv()
+	if err != nil {
+		return fmt.Errorf("unable to create selector environment: %w", err)
+	}
+
 	// Register the executor to handle entity evaluations
 	exec := engine.NewExecutor(
 		store,
@@ -190,6 +196,7 @@ func AllInOneServerService(
 		executorMetrics,
 		history.NewEvaluationHistoryService(),
 		featureFlagClient,
+		selEnv,
 	)
 
 	handler := engine.NewExecutorEventHandler(
