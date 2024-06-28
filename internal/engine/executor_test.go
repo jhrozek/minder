@@ -40,6 +40,7 @@ import (
 	"github.com/stacklok/minder/internal/engine/actions/alert"
 	"github.com/stacklok/minder/internal/engine/actions/remediate"
 	"github.com/stacklok/minder/internal/engine/entities"
+	mock_selection "github.com/stacklok/minder/internal/engine/selectors/mock"
 	"github.com/stacklok/minder/internal/flags"
 	mock_history "github.com/stacklok/minder/internal/history/mock"
 	"github.com/stacklok/minder/internal/logger"
@@ -316,12 +317,20 @@ default allow = true`,
 	require.NoError(t, err)
 	historyService := mock_history.NewMockEvaluationHistoryService(ctrl)
 
+	selection := mock_selection.NewMockSelection(ctrl)
+	selection.EXPECT().SelectEiw(gomock.Any()).Return(true, nil)
+
+	mockSelectionBuilder := mock_selection.NewMockSelectionBuilder(ctrl)
+	mockSelectionBuilder.EXPECT().NewSelectionFromProfile(gomock.Any(), gomock.Any()).
+		Return(selection, nil)
+
 	executor := engine.NewExecutor(
 		mockStore,
 		providerManager,
 		execMetrics,
 		historyService,
 		&flags.FakeClient{},
+		mockSelectionBuilder,
 	)
 
 	eiw := entities.NewEntityInfoWrapper().
