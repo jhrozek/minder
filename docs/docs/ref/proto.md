@@ -2457,6 +2457,49 @@ the name stutters a bit but we already use a PullRequest message for handling PR
 
 
 
+<Message id="minder-v1-SelectorEntity">SelectorEntity</Message>
+
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| entity_type | <TypeLink type="minder-v1-Entity">Entity</TypeLink> |  | one of repository, pull_request, artifact (see oneof entity) |
+| name | <TypeLink type="string">string</TypeLink> |  | the name of the entity, same as the name in the entity message |
+| repository | <TypeLink type="minder-v1-SelectorEntity-SelectorRepository">SelectorEntity.SelectorRepository</TypeLink> |  |  |
+| artifact | <TypeLink type="minder-v1-SelectorEntity-SelectorArtifact">SelectorEntity.SelectorArtifact</TypeLink> |  |  |
+
+
+
+<Message id="minder-v1-SelectorEntity-SelectorArtifact">SelectorEntity.SelectorArtifact</Message>
+
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | <TypeLink type="string">string</TypeLink> |  | the full name of the artifact, e.g. stacklok/minder-server |
+| owner | <TypeLink type="string">string</TypeLink> |  | the owner of the artifact, e.g. stacklok |
+| artifact_name | <TypeLink type="string">string</TypeLink> |  | the name of the artifact, e.g. minder-server |
+| type | <TypeLink type="string">string</TypeLink> |  | the type of the artifact, e.g. "container" |
+
+
+
+<Message id="minder-v1-SelectorEntity-SelectorRepository">SelectorEntity.SelectorRepository</Message>
+
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | <TypeLink type="string">string</TypeLink> |  | the full name of the repository, e.g. stacklok/minder |
+| repo_name | <TypeLink type="string">string</TypeLink> |  | the name of the repository, e.g. minder |
+| owner | <TypeLink type="string">string</TypeLink> |  | the owner of the repository, e.g. stacklok |
+| is_fork | <TypeLink type="bool">bool</TypeLink> | optional | is_fork is true if the repository is a fork, nil if "don't know" or rather not applicable to this provider |
+| is_private | <TypeLink type="bool">bool</TypeLink> | optional | is_private is true if the repository is private, nil if "don't know" or rather not applicable to this provider |
+
+
+
 <Message id="minder-v1-Severity">Severity</Message>
 
 Severity defines the severity of the rule.
