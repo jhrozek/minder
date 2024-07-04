@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rs/zerolog"
+
 	// ignore this linter warning - this is pre-existing code, and I do not
 	// want to change the logging library it uses at this time.
 	// nolint:depguard
@@ -145,10 +147,10 @@ func (p *profileService) CreateProfile(
 	// Create profile
 	newProfile, err := qtx.CreateProfile(ctx, params)
 	if db.ErrIsUniqueViolation(err) {
-		log.Printf("profile already exists: %v", err)
+		zerolog.Ctx(ctx).Error().Err(err).Msg("profile already exists")
 		return nil, util.UserVisibleError(codes.AlreadyExists, "profile already exists")
 	} else if err != nil {
-		log.Printf("error creating profile: %v", err)
+		zerolog.Ctx(ctx).Error().Err(err).Msg("error creating profile")
 		return nil, status.Errorf(codes.Internal, "error creating profile")
 	}
 
@@ -162,6 +164,10 @@ func (p *profileService) CreateProfile(
 		if err := createProfileRulesForEntity(ctx, ent, &newProfile, qtx, entRules, rulesInProf); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := createSelectors(ctx, newProfile.ID, qtx, profile.GetSelection()); err != nil {
+		return nil, err
 	}
 
 	logger.BusinessRecord(ctx).Profile = logger.Profile{Name: profile.Name, ID: newProfile.ID}
@@ -797,4 +803,31 @@ func upsertRuleInstances(
 	}
 
 	return updatedIDs, nil
+}
+
+func createSelectors(
+	ctx context.Context,
+	profID uuid.UUID,
+	qtx db.Querier,
+	selection []*minderv1.Profile_Selector,
+) error {
+	for _, sel := range selection {
+		dbEnt := db.NullEntities{}
+		if minderv1.EntityFromString(sel.GetEntity()) != minderv1.Entity_ENTITY_UNSPECIFIED {
+			dbEnt.Entities = entities.EntityTypeToDB(minderv1.EntityFromString(sel.GetEntity()))
+			dbEnt.Valid = true
+		}
+		_, err := qtx.CreateSelector(ctx, db.CreateSelectorParams{
+			ProfileID: profID,
+			Entity:    dbEnt,
+			Selector:  sel.GetSelector(),
+			Comment:   sel.GetComment(),
+		})
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("error creating selector")
+			return fmt.Errorf("error creating selector: %w", err)
+		}
+	}
+
+	return nil
 }
