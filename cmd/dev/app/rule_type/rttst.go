@@ -37,12 +37,14 @@ import (
 	"github.com/stacklok/minder/internal/engine/errors"
 	"github.com/stacklok/minder/internal/engine/eval/rego"
 	engif "github.com/stacklok/minder/internal/engine/interfaces"
+	"github.com/stacklok/minder/internal/engine/selectors"
 	"github.com/stacklok/minder/internal/logger"
 	"github.com/stacklok/minder/internal/profiles"
 	"github.com/stacklok/minder/internal/providers/credentials"
 	"github.com/stacklok/minder/internal/providers/dockerhub"
 	"github.com/stacklok/minder/internal/providers/github/clients"
 	"github.com/stacklok/minder/internal/providers/ratecache"
+	provsel "github.com/stacklok/minder/internal/providers/selectors"
 	"github.com/stacklok/minder/internal/providers/telemetry"
 	"github.com/stacklok/minder/internal/util/jsonyaml"
 	minderv1 "github.com/stacklok/minder/pkg/api/protobuf/go/minder/v1"
@@ -118,7 +120,8 @@ func testCmdRun(cmd *cobra.Command, _ []string) error {
 		Project:  &rootProject,
 	}
 
-	ent, err := readEntityFromFile(epath.Value.String(), minderv1.EntityFromString(ruletype.Def.InEntity))
+	entType := minderv1.EntityFromString(ruletype.Def.InEntity)
+	ent, err := readEntityFromFile(epath.Value.String(), entType)
 	if err != nil {
 		return fmt.Errorf("error reading entity from file: %w", err)
 	}
@@ -126,6 +129,16 @@ func testCmdRun(cmd *cobra.Command, _ []string) error {
 	profile, err := profiles.ReadProfileFromFile(ppath.Value.String())
 	if err != nil {
 		return fmt.Errorf("error reading fragment from file: %w", err)
+	}
+
+	selectorEnv, err := selectors.NewEnv()
+	if err != nil {
+		return fmt.Errorf("error creating selector environment: %w", err)
+	}
+
+	selectors, err := selectorEnv.NewSelectionFromProfile(entType, profile.Selection)
+	if err != nil {
+		return fmt.Errorf("error creating selectors: %w", err)
 	}
 
 	remediateStatus := db.NullRemediationStatusTypes{}
@@ -183,6 +196,7 @@ func testCmdRun(cmd *cobra.Command, _ []string) error {
 
 	inf := &entities.EntityInfoWrapper{
 		Entity:      ent,
+		Type:        entType,
 		ExecutionID: &uuid.Nil,
 	}
 	if err != nil {
@@ -193,13 +207,15 @@ func testCmdRun(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("no rules found with type %s", ruletype.Name)
 	}
 
-	return runEvaluationForRules(cmd, eng, inf, remediateStatus, remMetadata, rules, actionEngine)
+	return runEvaluationForRules(cmd, eng, inf, prov, selectors, remediateStatus, remMetadata, rules, actionEngine)
 }
 
 func runEvaluationForRules(
 	cmd *cobra.Command,
 	eng *engine.RuleTypeEngine,
 	inf *entities.EntityInfoWrapper,
+	provider provifv1.Provider,
+	entitySelectors selectors.Selection,
 	remediateStatus db.NullRemediationStatusTypes,
 	remMetadata pqtype.NullRawMessage,
 	frags []*minderv1.Profile_Rule,
@@ -234,7 +250,8 @@ func runEvaluationForRules(
 		ctx = logger.FromFlags(logConfig).WithContext(ctx)
 
 		// Perform rule evaluation
-		evalStatus.SetEvalErr(eng.Eval(ctx, inf, evalStatus))
+		evalErr := selectAndEval(ctx, eng, provider, inf, evalStatus, entitySelectors)
+		evalStatus.SetEvalErr(evalErr)
 
 		// Perform the actions, if any
 		evalStatus.SetActionsErr(ctx, actionEngine.DoActions(ctx, inf.Entity, evalStatus))
@@ -251,6 +268,34 @@ func runEvaluationForRules(
 	}
 
 	return nil
+}
+
+func selectAndEval(
+	ctx context.Context,
+	eng *engine.RuleTypeEngine,
+	provider provifv1.Provider,
+	inf *entities.EntityInfoWrapper,
+	evalStatus *engif.EvalStatusParams,
+	profileSelectors selectors.Selection,
+) error {
+	selEnt := provsel.EntityToSelectorEntity(ctx, provider, inf.Type, inf.Entity)
+	if selEnt == nil {
+		return fmt.Errorf("error converting entity to selector entity")
+	}
+
+	selected, err := profileSelectors.Select(selEnt)
+	if err != nil {
+		return fmt.Errorf("error selecting entity: %w", err)
+	}
+
+	var evalErr error
+	if selected {
+		evalErr = eng.Eval(ctx, inf, evalStatus)
+	} else {
+		evalErr = errors.NewErrEvaluationSkipped("entity not selected by selectors")
+	}
+
+	return evalErr
 }
 
 func readRuleTypeFromFile(fpath string) (*minderv1.RuleType, error) {
