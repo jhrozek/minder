@@ -32,6 +32,7 @@ func (p *Provider) CanImplement(impl ProviderType) bool {
 type ProfileRow interface {
 	GetProfile() Profile
 	GetEntityProfile() NullEntities
+	GetSelectors() []ProfileSelector
 	GetContextualRules() pqtype.NullRawMessage
 }
 
@@ -50,6 +51,10 @@ func (r ListProfilesByProjectIDAndLabelRow) GetContextualRules() pqtype.NullRawM
 	return r.ProfilesWithEntityProfile.ContextualRules
 }
 
+func (r ListProfilesByProjectIDAndLabelRow) GetSelectors() []ProfileSelector {
+	return r.ProfilesWithSelectors
+}
+
 // GetProfile returns the profile
 func (r ListProfilesByProjectIDRow) GetProfile() Profile {
 	return r.Profile
@@ -63,6 +68,10 @@ func (r ListProfilesByProjectIDRow) GetEntityProfile() NullEntities {
 // GetContextualRules returns the contextual rules
 func (r ListProfilesByProjectIDRow) GetContextualRules() pqtype.NullRawMessage {
 	return r.ProfilesWithEntityProfile.ContextualRules
+}
+
+func (r ListProfilesByProjectIDRow) GetSelectors() []ProfileSelector {
+	return r.ProfilesWithSelectors
 }
 
 // LabelsFromFilter parses the filter string and populates the IncludeLabels and ExcludeLabels fields
