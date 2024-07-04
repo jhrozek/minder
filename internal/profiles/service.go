@@ -164,6 +164,25 @@ func (p *profileService) CreateProfile(
 		}
 	}
 
+	for _, sel := range profile.GetSelection() {
+		fmt.Printf("XXX: selection: %+v", sel)
+		dbEnt := db.NullEntities{}
+		if minderv1.EntityFromString(sel.GetEntity()) != minderv1.Entity_ENTITY_UNSPECIFIED {
+			dbEnt.Entities = entities.EntityTypeToDB(minderv1.EntityFromString(sel.GetEntity()))
+			dbEnt.Valid = true
+		}
+		_, err = qtx.CreateSelector(ctx, db.CreateSelectorParams{
+			ProfileID: newProfile.ID,
+			Entity:    dbEnt,
+			Selector:  sel.GetSelector(),
+			Comment:   sel.GetComment(),
+		})
+		if err != nil {
+			log.Printf("error creating profile selection: %v", err)
+			return nil, status.Errorf(codes.Internal, "error creating profile")
+		}
+	}
+
 	logger.BusinessRecord(ctx).Profile = logger.Profile{Name: profile.Name, ID: newProfile.ID}
 	p.sendNewProfileEvent(projectID)
 
