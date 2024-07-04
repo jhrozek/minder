@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/stacklok/minder/internal/engine/selectors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,7 +119,8 @@ func testCmdRun(cmd *cobra.Command, _ []string) error {
 		Project:  &rootProject,
 	}
 
-	ent, err := readEntityFromFile(epath.Value.String(), minderv1.EntityFromString(ruletype.Def.InEntity))
+	entType := minderv1.EntityFromString(ruletype.Def.InEntity)
+	ent, err := readEntityFromFile(epath.Value.String(), entType)
 	if err != nil {
 		return fmt.Errorf("error reading entity from file: %w", err)
 	}
@@ -126,6 +128,16 @@ func testCmdRun(cmd *cobra.Command, _ []string) error {
 	profile, err := profiles.ReadProfileFromFile(ppath.Value.String())
 	if err != nil {
 		return fmt.Errorf("error reading fragment from file: %w", err)
+	}
+
+	selectorEnv, err := selectors.NewEnv()
+	if err != nil {
+		return fmt.Errorf("error creating selector environment: %w", err)
+	}
+
+	selectors, err := selectorEnv.NewSelectionFromProfile(entType, profile.Selection)
+	if err != nil {
+		return fmt.Errorf("error creating selectors: %w", err)
 	}
 
 	remediateStatus := db.NullRemediationStatusTypes{}
@@ -183,6 +195,7 @@ func testCmdRun(cmd *cobra.Command, _ []string) error {
 
 	inf := &entities.EntityInfoWrapper{
 		Entity:      ent,
+		Type:        entType,
 		ExecutionID: &uuid.Nil,
 	}
 	if err != nil {
@@ -193,13 +206,14 @@ func testCmdRun(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("no rules found with type %s", ruletype.Name)
 	}
 
-	return runEvaluationForRules(cmd, eng, inf, remediateStatus, remMetadata, rules, actionEngine)
+	return runEvaluationForRules(cmd, eng, inf, selectors, remediateStatus, remMetadata, rules, actionEngine)
 }
 
 func runEvaluationForRules(
 	cmd *cobra.Command,
 	eng *engine.RuleTypeEngine,
 	inf *entities.EntityInfoWrapper,
+	entitySelectors selectors.Selection,
 	remediateStatus db.NullRemediationStatusTypes,
 	remMetadata pqtype.NullRawMessage,
 	frags []*minderv1.Profile_Rule,
@@ -234,7 +248,17 @@ func runEvaluationForRules(
 		ctx = logger.FromFlags(logConfig).WithContext(ctx)
 
 		// Perform rule evaluation
-		evalStatus.SetEvalErr(eng.Eval(ctx, inf, evalStatus))
+		var evalErr error
+		selected, err := entitySelectors.SelectEiw(inf)
+		if err != nil {
+			return fmt.Errorf("error selecting entity: %w", err)
+		}
+		if selected {
+			evalErr = eng.Eval(ctx, inf, evalStatus)
+		} else {
+			evalErr = errors.NewErrEvaluationSkipped("entity not selected by selectors")
+		}
+		evalStatus.SetEvalErr(evalErr)
 
 		// Perform the actions, if any
 		evalStatus.SetActionsErr(ctx, actionEngine.DoActions(ctx, inf.Entity, evalStatus))
