@@ -2450,6 +2450,7 @@ enum ProviderType {
     PROVIDER_TYPE_OCI = 4 [(name) = "oci"];
     PROVIDER_TYPE_REPO_LISTER = 5 [(name) = "repo-lister"];
     PROVIDER_TYPE_IMAGE_LISTER = 6 [(name) = "image-lister"];
+    PROVIDER_TYPE_LUKE_PROVIDER = 7 [(name) = "lukeprovider"];
 }
 
 enum ProviderClass {
@@ -2458,6 +2459,7 @@ enum ProviderClass {
     PROVIDER_CLASS_GITHUB_APP = 2 [(name) = "github-app"];
     PROVIDER_CLASS_GHCR = 3 [(name) = "ghcr"];
     PROVIDER_CLASS_DOCKERHUB = 4 [(name) = "dockerhub"];
+    PROVIDER_CLASS_LUKE_PROVIDER = 5 [(name) = "lukeprovider"];
 }
 
 enum AuthorizationFlow {

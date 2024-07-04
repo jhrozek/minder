@@ -2728,6 +2728,7 @@ Entity defines the entity that is supported by the provider.
 | PROVIDER_CLASS_GITHUB_APP | 2 |  |
 | PROVIDER_CLASS_GHCR | 3 |  |
 | PROVIDER_CLASS_DOCKERHUB | 4 |  |
+| PROVIDER_CLASS_LUKE_PROVIDER | 5 |  |
 
 
 
@@ -2744,6 +2745,7 @@ ProviderTrait is the type of the provider.
 | PROVIDER_TYPE_OCI | 4 |  |
 | PROVIDER_TYPE_REPO_LISTER | 5 |  |
 | PROVIDER_TYPE_IMAGE_LISTER | 6 |  |
+| PROVIDER_TYPE_LUKE_PROVIDER | 7 |  |
 
 
 
