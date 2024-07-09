@@ -249,7 +249,7 @@ func runEvaluationForRules(
 
 		// Perform rule evaluation
 		var evalErr error
-		selected, err := entitySelectors.SelectEiw(inf)
+		selected, _, err := entitySelectors.SelectEiw(inf)
 		if err != nil {
 			return fmt.Errorf("error selecting entity: %w", err)
 		}

@@ -118,7 +118,7 @@ func (e *executor) EvalEntityEvent(ctx context.Context, inf *entities.EntityInfo
 			if err != nil {
 				return fmt.Errorf("error creating selectors: %w", err)
 			}
-			selected, err := selectors.SelectEiw(inf)
+			selected, details, err := selectors.SelectEiw(inf)
 			if err != nil {
 				return fmt.Errorf("error selecting entity: %w", err)
 			}
@@ -142,7 +142,7 @@ func (e *executor) EvalEntityEvent(ctx context.Context, inf *entities.EntityInfo
 				if selected {
 					evalErr = ruleEngine.Eval(ctx, inf, evalParams)
 				} else {
-					evalErr = evalerrors.NewErrEvaluationSkipped("entity not selected")
+					evalErr = evalerrors.NewErrEvaluationSkipped("entity not selected: %s", details)
 				}
 				evalParams.SetEvalErr(evalErr)
 

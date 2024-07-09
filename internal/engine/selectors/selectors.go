@@ -20,6 +20,8 @@ package selectors
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/google/cel-go/cel"
@@ -146,7 +148,7 @@ func (e *Env) NewSelectionFromProfile(
 	entityType minderv1.Entity,
 	profileSelection []*minderv1.Profile_Selector,
 ) (Selection, error) {
-	selector := make([]cel.Program, 0, len(profileSelection))
+	selector := make([]compiledCelSelector, 0, len(profileSelection))
 
 	for _, sel := range profileSelection {
 		ent := minderv1.EntityFromString(sel.GetEntity())
@@ -159,7 +161,7 @@ func (e *Env) NewSelectionFromProfile(
 			return nil, fmt.Errorf("failed to compile selector %q: %w", sel.Selector, err)
 		}
 
-		selector = append(selector, program)
+		selector = append(selector, compiledCelSelector{selector: program, expr: sel.Selector})
 	}
 
 	return &EntitySelection{
@@ -185,7 +187,7 @@ func (e *Env) compileSelectorForEntity(selector string, entityType minderv1.Enti
 		return nil, fmt.Errorf("failed to check expression %q: %w", selector, issues.Err())
 	}
 
-	program, err := env.Program(checked)
+	program, err := env.Program(checked, cel.EvalOptions(cel.OptTrackState))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create program for expression %q: %w", selector, err)
 	}
@@ -298,51 +300,81 @@ func newSelectorEntity(eiw *entities.EntityInfoWrapper) *minderv1.SelectorEntity
 
 // Selection is an interface for selecting entities based on a profile
 type Selection interface {
-	Select(*minderv1.SelectorEntity) (bool, error)
-	SelectEiw(*entities.EntityInfoWrapper) (bool, error)
+	Select(*minderv1.SelectorEntity) (bool, string, error)
+	SelectEiw(*entities.EntityInfoWrapper) (bool, string, error)
 }
 
 // EntitySelection is a struct that holds the compiled CEL expressions for a given entity type
+type compiledCelSelector struct {
+	selector cel.Program
+	expr     string
+}
+
 type EntitySelection struct {
-	selector []cel.Program
+	selector []compiledCelSelector
 	entity   minderv1.Entity
 }
 
+func evalDetails(details *cel.EvalDetails) string {
+	strDetails := &strings.Builder{}
+
+	state := details.State()
+	stateIDs := state.IDs()
+	ids := make([]int, len(stateIDs), len(stateIDs))
+	for i, id := range stateIDs {
+		ids[i] = int(id)
+	}
+	sort.Ints(ids)
+	for _, id := range ids {
+		v, found := state.Value(int64(id))
+		if !found {
+			continue
+		}
+		fmt.Fprintf(strDetails, "%d: %v (%T)\n", id, v, v)
+	}
+
+	return strDetails.String()
+}
+
 // Select return true if the entity matches all the compiled expressions and false otherwise
-func (s *EntitySelection) Select(se *minderv1.SelectorEntity) (bool, error) {
+func (s *EntitySelection) Select(se *minderv1.SelectorEntity) (bool, string, error) {
 	if se == nil {
-		return false, fmt.Errorf("input entity is nil")
+		return false, "", fmt.Errorf("input entity is nil")
 	}
 
 	for _, sel := range s.selector {
 		entityMap, err := inputAsMap(se)
 		if err != nil {
-			return false, fmt.Errorf("failed to convert input to map: %w", err)
+			return false, "", fmt.Errorf("failed to convert input to map: %w", err)
 		}
 
-		out, _, err := sel.Eval(entityMap)
+		out, details, err := sel.selector.Eval(entityMap)
 		if err != nil {
-			return false, fmt.Errorf("failed to evaluate Expression: %w", err)
+			return false, "", fmt.Errorf("failed to evaluate Expression: %w", err)
 		}
 
 		if out.Type() != cel.BoolType {
-			return false, fmt.Errorf("expression did not evaluate to a boolean: %v", out)
+			return false, "", fmt.Errorf("expression did not evaluate to a boolean: %v", out)
 		}
 
 		if !out.Value().(bool) {
-			return false, nil
+			return false, sel.expr, nil
+		}
+
+		for _, i := range details.State().IDs() {
+			details.State().Value(i)
 		}
 	}
 
-	return true, nil
+	return true, "", nil
 }
 
 // SelectEiw selects an entity based on an EntityInfoWrapper. It is a convenience method
 // around Select that creates a SelectorEntity from the EntityInfoWrapper
-func (s *EntitySelection) SelectEiw(eiw *entities.EntityInfoWrapper) (bool, error) {
+func (s *EntitySelection) SelectEiw(eiw *entities.EntityInfoWrapper) (bool, string, error) {
 	se := newSelectorEntity(eiw)
 	if se == nil {
-		return false, fmt.Errorf("failed to create SelectorEntity from EntityInfoWrapper")
+		return false, "", fmt.Errorf("failed to create SelectorEntity from EntityInfoWrapper")
 	}
 
 	return s.Select(se)
