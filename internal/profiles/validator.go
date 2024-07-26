@@ -17,6 +17,7 @@ package profiles
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -359,20 +360,23 @@ func handleSelectorError(err error) error {
 func handleErrSelectorCheck(err error) error {
 	var selParseErr *selectors.ParseError
 	var selCheckErr *selectors.CheckError
+	var structuredString string
+	var niceStatus *util.NiceStatus
 
 	if errors.As(err, &selParseErr) {
-		msg := "No error message found"
-		if len(selParseErr.Errors) > 0 {
-			msg = selParseErr.Errors[0].Msg
-		}
-		return util.UserVisibleError(codes.InvalidArgument, "selector failed to parse: %s", msg)
+		niceStatus = util.UserVisibleError(codes.InvalidArgument, "selector parse error")
+		structuredString = selParseErr.Error()
 	} else if errors.As(err, &selCheckErr) {
-		msg := "No error message found"
-		if len(selCheckErr.Errors) > 0 {
-			msg = selCheckErr.Errors[0].Msg
-		}
-		return util.UserVisibleError(codes.InvalidArgument, "selector is invalid: %s", msg)
+		structuredString = selParseErr.Error()
+		niceStatus = util.UserVisibleError(codes.InvalidArgument, "selector syntax error")
+	} else {
+		return err
 	}
 
-	return err
+	var result map[string]any
+	jerr := json.Unmarshal([]byte(structuredString), &result)
+	if jerr != nil {
+		return err
+	}
+	return niceStatus.WithStructuredDetails(result)
 }

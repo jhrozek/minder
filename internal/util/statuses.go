@@ -18,7 +18,12 @@ package util
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,6 +40,8 @@ type NiceStatus struct {
 	Description string
 	// Actions, reasons and links
 	Details string
+	// Structured reply
+	Structured []*anypb.Any
 }
 
 // GetNiceStatus get a nice status from the code.
@@ -153,6 +160,35 @@ authentication credentials for the operation.`
 	return s
 }
 
+func (s *NiceStatus) WithStructuredDetails(details map[string]any) *NiceStatus {
+	if s == nil {
+		return nil
+	}
+
+	if s.Structured == nil {
+		s.Structured = make([]*anypb.Any, 1)
+	}
+
+	jsonBytes, err := json.Marshal(details)
+	if err != nil {
+		return s
+	}
+
+	var pbs structpb.Struct
+	if err := protojson.Unmarshal(jsonBytes, &pbs); err != nil {
+		log.Fatalf("Failed to unmarshal JSON to Struct: %v", err)
+	}
+
+	// Wrap the Struct in an Any type
+	anyPayload, err := anypb.New(&pbs)
+	if err != nil {
+		log.Fatalf("Failed to create Any payload: %v", err)
+	}
+
+	s.Structured[0] = anyPayload
+	return s
+}
+
 // String convert the status to a string
 func (s *NiceStatus) String() string {
 	ret := fmt.Sprintf("Code: %d\nName: %s\nDescription: %s\nDetails: %s", s.Code, s.Name, s.Description, s.Details)
@@ -165,7 +201,17 @@ func (s *NiceStatus) GRPCStatus() *status.Status {
 	if s == nil {
 		return nil
 	}
-	return status.New(s.Code, s.Details)
+	gs := status.New(s.Code, s.Details)
+
+	if s.Structured != nil {
+		var err error
+		gs, err = gs.WithDetails(s.Structured[0])
+		if err != nil {
+			log.Fatalf("Failed to set structured details: %v", err)
+		}
+	}
+
+	return gs
 }
 
 // Error implements Golang error

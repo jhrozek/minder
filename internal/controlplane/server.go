@@ -18,6 +18,9 @@ package controlplane
 import (
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"net"
 	"net/http"
 	"runtime/debug"
@@ -302,6 +305,54 @@ func (s *Server) getOTELGRPCInterceptorOpts() []otelgrpc.Option {
 	return opts
 }
 
+func handlerDetailsString(st *status.Status) string {
+	if len(st.Details()) == 0 {
+		return ""
+	}
+
+	detail := st.Details()[0]
+
+	switch t := detail.(type) {
+	case *anypb.Any:
+		var s structpb.Struct
+		if err := t.UnmarshalTo(&s); err != nil {
+			return ""
+		}
+
+		detailString, err := protojson.Marshal(&s)
+		if err != nil {
+			return ""
+		}
+		return string(detailString)
+	}
+
+	return ""
+}
+
+func gwErrorHandler(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, r *http.Request, err error) {
+	defer func() {
+		runtime.DefaultHTTPErrorHandler(ctx, mux, marshaler, w, r, err)
+	}()
+
+	st := status.Convert(err)
+
+	method, ok := runtime.RPCMethod(ctx)
+	if !ok {
+		return
+	}
+
+	switch method {
+	// the switch should just go away honestly, but for now we'll just handle the one case
+	case "/minder.v1.ProfileService/UpdateProfile":
+	case "/minder.v1.ProfileService/CreateProfile":
+		structErr := handlerDetailsString(st)
+		if structErr != "" {
+			w.Header().Set("X-Minder-Structured-Error", st.Message())
+		}
+	}
+
+}
+
 // StartHTTPServer starts a HTTP server and registers the gRPC handler mux to it
 // set store as a blank identifier for now as we will use it in the future
 func (s *Server) StartHTTPServer(ctx context.Context) error {
@@ -320,7 +371,10 @@ func (s *Server) StartHTTPServer(ctx context.Context) error {
 		})
 	}
 
-	gwmux := runtime.NewServeMux()
+	gwmux := runtime.NewServeMux(
+		runtime.WithErrorHandler(gwErrorHandler),
+	)
+
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 
 	// register the services (declared within register_handlers.go)
