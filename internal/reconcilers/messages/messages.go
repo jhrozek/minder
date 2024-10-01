@@ -22,21 +22,28 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/google/uuid"
+
+	"github.com/stacklok/minder/internal/entities/properties"
 )
 
 // RepoReconcilerEvent is an event that is sent to the reconciler topic
 type RepoReconcilerEvent struct {
 	// Project is the project that the event is relevant to
 	Project uuid.UUID `json:"project"`
-	// Repository is the repository to be reconciled
-	Repository int64 `json:"repository" validate:"gte=0"`
+	// Provider is the provider that the event is relevant to
+	Provider uuid.UUID `json:"provider"`
+	// Properties is the properties of the repository to be reconciled
+	Properties map[string]any `json:"properties"`
 }
 
 // NewRepoReconcilerMessage creates a new repos init event
 func NewRepoReconcilerMessage(providerID uuid.UUID, repoID int64, projectID uuid.UUID) (*message.Message, error) {
 	evt := &RepoReconcilerEvent{
-		Repository: repoID,
-		Project:    projectID,
+		Properties: map[string]any{
+			properties.PropertyUpstreamID: fmt.Sprintf("%d", repoID),
+		},
+		Project:  projectID,
+		Provider: providerID,
 	}
 
 	evtStr, err := json.Marshal(evt)
@@ -45,7 +52,6 @@ func NewRepoReconcilerMessage(providerID uuid.UUID, repoID int64, projectID uuid
 	}
 
 	msg := message.NewMessage(uuid.New().String(), evtStr)
-	msg.Metadata.Set("provider_id", providerID.String())
 	return msg, nil
 }
 

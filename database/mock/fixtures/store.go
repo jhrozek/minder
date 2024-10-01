@@ -100,6 +100,16 @@ func WithSuccessfulGetRepositoryByRepoID(
 	}
 }
 
+func WithFailedGetRepositoryByRepoID(
+	err error,
+) func(*mockdb.MockStore) {
+	return func(mockStore *mockdb.MockStore) {
+		mockStore.EXPECT().
+			GetRepositoryByRepoID(gomock.Any(), gomock.Any()).
+			Return(db.Repository{}, err)
+	}
+}
+
 func WithSuccessfulGetFeatureInProject(
 	active bool,
 ) func(*mockdb.MockStore) {
