@@ -42,6 +42,8 @@ var (
 	ErrMultipleEntities = errors.New("multiple entities found")
 	// ErrPropertyNotFound is returned when a property is not found
 	ErrPropertyNotFound = errors.New("property not found")
+	// ErrNoHint is returned when no hint is provided
+	ErrNoHint = errors.New("need at least one hint to search by")
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mock_$GOPACKAGE -destination=./mock/$GOFILE -source=./$GOFILE
@@ -359,6 +361,8 @@ type ByUpstreamHint struct {
 	// ProviderImplements is the provider type to search by
 	ProviderImplements db.NullProviderType
 	ProviderClass      db.NullProviderClass
+	ProviderID         uuid.UUID
+	ProjectID          uuid.UUID
 }
 
 // ToLogDict converts the hint to a log dictionary for use by zerolog
@@ -370,7 +374,7 @@ func (hint *ByUpstreamHint) ToLogDict() *zerolog.Event {
 }
 
 func (hint *ByUpstreamHint) isSet() bool {
-	return hint.ProviderImplements.Valid || hint.ProviderClass.Valid
+	return hint.ProviderImplements.Valid || hint.ProviderClass.Valid || hint.ProviderID != uuid.Nil || hint.ProjectID != uuid.Nil
 }
 
 func (ps *propertiesService) EntityWithPropertiesByUpstreamHint(

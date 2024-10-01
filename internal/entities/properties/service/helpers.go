@@ -200,7 +200,7 @@ func matchEntityWithHint(
 	qtx db.ExtendQuerier,
 ) (*db.EntityInstance, error) {
 	if !hint.isSet() {
-		return nil, fmt.Errorf("at least one of projectID, providerID or providerImplements must be set in hint")
+		return nil, ErrNoHint
 	}
 
 	var ents []db.EntityInstance
@@ -219,8 +219,7 @@ func matchEntityWithHint(
 			// we search across all projects and providers. This is expected because the lookup properties only
 			// contain upstream properties and the get-with-hint methods are only to be used by callers who don't
 			// know the project or provider ID and only have an upstream webhook payload.
-			uuid.Nil, uuid.Nil,
-			qtx)
+			hint.ProjectID, hint.ProviderID, qtx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get entities by upstream ID: %w", err)
 		}
