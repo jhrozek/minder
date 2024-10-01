@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/google/uuid"
 
 	"github.com/stacklok/minder/internal/entities/properties"
 	v1 "github.com/stacklok/minder/pkg/api/protobuf/go/minder/v1"
@@ -37,6 +38,8 @@ type TypedProps struct {
 type EntityHint struct {
 	ProviderImplementsHint string `json:"provider_implements_hint"`
 	ProviderClassHint      string `json:"provider_class_hint"`
+	ProviderIDHint         string `json:"provider_id_hint"`
+	ProjectIDHint          string `json:"project_id_hint"`
 }
 
 // HandleEntityAndDoMessage is a message that is sent to the entity handler to refresh an entity and perform an action.
@@ -82,6 +85,18 @@ func (e *HandleEntityAndDoMessage) WithProviderImplementsHint(providerHint strin
 // to the provider class
 func (e *HandleEntityAndDoMessage) WithProviderClassHint(providerClassHint string) *HandleEntityAndDoMessage {
 	e.Hint.ProviderClassHint = providerClassHint
+	return e
+}
+
+// WithProviderIDHint sets the hint for the entity that will be used when looking up the entity to the provider ID.
+func (e *HandleEntityAndDoMessage) WithProviderIDHint(providerID uuid.UUID) *HandleEntityAndDoMessage {
+	e.Hint.ProviderIDHint = providerID.String()
+	return e
+}
+
+// WithProjectIDHint sets the hint for the entity that will be used when looking up the entity to the project ID.
+func (e *HandleEntityAndDoMessage) WithProjectIDHint(projectID uuid.UUID) *HandleEntityAndDoMessage {
+	e.Hint.ProjectIDHint = projectID.String()
 	return e
 }
 

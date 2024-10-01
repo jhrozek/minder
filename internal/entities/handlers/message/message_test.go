@@ -39,6 +39,8 @@ func TestEntityRefreshAndDoMessageRoundTrip(t *testing.T) {
 		ownerType     v1.Entity
 		providerHint  string
 		providerClass string
+		providerID    uuid.UUID
+		projectID     uuid.UUID
 	}{
 		{
 			name: "Valid repository entity",
@@ -86,10 +88,15 @@ func TestEntityRefreshAndDoMessageRoundTrip(t *testing.T) {
 			props, err := properties.NewProperties(sc.props)
 			require.NoError(t, err)
 
+			sc.providerID = uuid.New()
+			sc.projectID = uuid.New()
+
 			original := NewEntityRefreshAndDoMessage().
 				WithEntity(sc.entType, props).
 				WithProviderImplementsHint(sc.providerHint).
-				WithProviderClassHint(sc.providerClass)
+				WithProviderClassHint(sc.providerClass).
+				WithProviderIDHint(sc.providerID).
+				WithProjectIDHint(sc.projectID)
 
 			if sc.ownerProps != nil {
 				ownerProps, err := properties.NewProperties(sc.ownerProps)
@@ -107,6 +114,8 @@ func TestEntityRefreshAndDoMessageRoundTrip(t *testing.T) {
 			assert.Equal(t, original.Entity.Type, roundTrip.Entity.Type)
 			assert.Equal(t, original.Hint.ProviderImplementsHint, roundTrip.Hint.ProviderImplementsHint)
 			assert.Equal(t, original.Hint.ProviderClassHint, roundTrip.Hint.ProviderClassHint)
+			assert.Equal(t, original.Hint.ProviderIDHint, roundTrip.Hint.ProviderIDHint)
+			assert.Equal(t, original.Hint.ProjectIDHint, roundTrip.Hint.ProjectIDHint)
 			if original.Originator.Type != v1.Entity_ENTITY_UNSPECIFIED {
 				assert.Equal(t, original.Originator.GetByProps, roundTrip.Originator.GetByProps)
 				assert.Equal(t, original.Originator.Type, roundTrip.Originator.Type)

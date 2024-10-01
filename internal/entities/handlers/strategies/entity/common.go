@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/stacklok/minder/internal/entities/handlers/message"
 	"github.com/stacklok/minder/internal/entities/models"
 	"github.com/stacklok/minder/internal/entities/properties"
@@ -46,6 +48,20 @@ func getEntityInner(
 		if err := svcHint.ProviderClass.ProviderClass.Scan(hint.ProviderClassHint); err != nil {
 			return nil, fmt.Errorf("error scanning provider class: %w", err)
 		}
+	}
+	if hint.ProviderIDHint != "" {
+		providerID, err := uuid.Parse(hint.ProviderIDHint)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing provider ID: %w", err)
+		}
+		svcHint.ProviderID = providerID
+	}
+	if hint.ProjectIDHint != "" {
+		projectID, err := uuid.Parse(hint.ProjectIDHint)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing project ID: %w", err)
+		}
+		svcHint.ProjectID = projectID
 	}
 
 	lookupProperties, err := properties.NewProperties(entPropMap)
