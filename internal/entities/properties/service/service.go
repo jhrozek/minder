@@ -360,15 +360,33 @@ func (ps *propertiesService) EntityWithPropertiesByID(
 type ByUpstreamHint struct {
 	// ProviderImplements is the provider type to search by
 	ProviderImplements db.NullProviderType
-	ProviderClass      db.NullProviderClass
-	ProviderID         uuid.UUID
-	ProjectID          uuid.UUID
+	// ProviderClass is the provider class to search by
+	ProviderClass db.NullProviderClass
+	// ProviderID is the provider ID to search by
+	ProviderID uuid.UUID
+	// ProjectID is the project ID to search by
+	ProjectID uuid.UUID
 }
 
 // ToLogDict converts the hint to a log dictionary for use by zerolog
 func (hint *ByUpstreamHint) ToLogDict() *zerolog.Event {
-	dict := zerolog.Dict().
-		Interface("ProviderImplements", hint.ProviderImplements)
+	dict := zerolog.Dict()
+
+	if hint.ProviderImplements.Valid {
+		dict.Interface("ProviderImplements", hint.ProviderImplements)
+	}
+
+	if hint.ProviderClass.Valid {
+		dict.Interface("ProviderClass", hint.ProviderClass)
+	}
+
+	if hint.ProviderID != uuid.Nil {
+		dict.Interface("ProviderID", hint.ProviderID.String())
+	}
+
+	if hint.ProjectID != uuid.Nil {
+		dict.Interface("ProjectID", hint.ProjectID.String())
+	}
 
 	return dict
 }
